@@ -156,31 +156,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Need full history for dynamic versioning
-          ref: ${{ needs.build-and-test.outputs.version }}
-
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: dist-${{ needs.build-and-test.outputs.version }}
           path: dist/
 
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          version: latest
+          python-version: '3.10'
 
-      - name: Configure TestPyPI repository
+      - name: Install twine
         run: |
-          poetry config repositories.testpypi https://test.pypi.org/legacy/
+          python -m pip install --upgrade pip
+          pip install twine
 
       - name: Publish to TestPyPI
         env:
-          POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
         run: |
-          poetry publish --repository testpypi
+          # Check what we're publishing
+          echo "Files to publish:"
+          ls -la dist/
+          
+          # Upload to TestPyPI
+          twine upload --skip-existing dist/*
 
   verify-testpypi-installation:
     if: github.event_name != 'pull_request'
@@ -238,27 +241,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Need full history for dynamic versioning
-          ref: ${{ needs.build-and-test.outputs.version }}
-
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: dist-${{ needs.build-and-test.outputs.version }}
           path: dist/
 
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          version: latest
+          python-version: '3.10'
+
+      - name: Install twine
+        run: |
+          python -m pip install --upgrade pip
+          pip install twine
 
       - name: Publish to PyPI
         env:
-          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
-          poetry publish
+          # Check what we're publishing
+          echo "Files to publish:"
+          ls -la dist/
+          
+          # Upload to PyPI
+          twine upload --skip-existing dist/*
 
   verify-pypi-installation:
     if: github.event_name != 'pull_request'
