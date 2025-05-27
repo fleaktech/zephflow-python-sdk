@@ -1,0 +1,227 @@
+name: Build, Test and Publish to PyPI
+
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Git tag version to publish (e.g., v0.3.0)'
+        required: true
+        type: string
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+      
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for dynamic versioning
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Get version from git tag
+        id: get-version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          
+          # Ensure we're on the right tag
+          git checkout $VERSION
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      - name: Install dependencies
+        run: |
+          poetry install
+
+      - name: Run linting and formatting checks
+        run: |
+          poetry run black --check zephflow/ tests/
+          poetry run isort --check zephflow/ tests/
+          poetry run flake8 zephflow/
+
+      - name: Run type checking
+        run: |
+          poetry run mypy zephflow/
+
+      - name: Run tests
+        run: |
+          poetry run pytest tests/ --cov=zephflow --cov-report=term-missing
+
+      - name: Build package
+        run: |
+          poetry build
+          echo "Built package with version: $(poetry version -s)"
+
+      - name: Test local installation
+        run: |
+          # Test installing the built package
+          pip install dist/*.whl
+          python -c "import zephflow; print(f'Installed version: {zephflow.__version__}')"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist-${{ steps.get-version.outputs.version }}
+          path: dist/
+
+  test-on-multiple-platforms:
+    needs: build-and-test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12' ]
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: dist-${{ needs.build-and-test.outputs.version }}
+          path: dist/
+
+      - name: Test installation from wheel
+        run: |
+          pip install dist/*.whl
+          python -c "import zephflow; print(f'ZephFlow version: {zephflow.__version__}')"
+
+  publish-to-testpypi:
+    needs: [build-and-test, test-on-multiple-platforms]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: dist-${{ needs.build-and-test.outputs.version }}
+          path: dist/
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+
+      - name: Configure TestPyPI repository
+        run: |
+          poetry config repositories.testpypi https://test.pypi.org/legacy/
+
+      - name: Publish to TestPyPI
+        env:
+          POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        run: |
+          poetry publish --repository testpypi
+
+  verify-testpypi-installation:
+    needs: [build-and-test, publish-to-testpypi]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Wait for TestPyPI propagation
+        run: sleep 60
+
+      - name: Install from TestPyPI
+        run: |
+          VERSION="${{ needs.build-and-test.outputs.version }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix
+          
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ zephflow==$VERSION
+
+      - name: Verify TestPyPI installation
+        run: |
+          python -c "import zephflow; print(f'TestPyPI version: {zephflow.__version__}')"
+
+  publish-to-pypi:
+    needs: [build-and-test, test-on-multiple-platforms, verify-testpypi-installation]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: dist-${{ needs.build-and-test.outputs.version }}
+          path: dist/
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+
+      - name: Publish to PyPI
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          poetry publish
+
+  verify-pypi-installation:
+    needs: [build-and-test, publish-to-pypi]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12' ]
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Wait for PyPI propagation
+        run: sleep 60
+
+      - name: Install from PyPI
+        run: |
+          VERSION="${{ needs.build-and-test.outputs.version }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix
+          
+          pip install zephflow==$VERSION
+
+      - name: Verify PyPI installation
+        run: |
+          python -c "import zephflow; print(f'PyPI version: {zephflow.__version__}')"
