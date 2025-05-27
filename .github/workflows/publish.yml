@@ -1,6 +1,14 @@
 name: Build, Test and Publish to PyPI
 
+# Workflow triggers:
+# - Push to main: Runs tests and checks only (no publishing)
+# - Pull request to main: Runs tests and checks only (no publishing)
+# - Release published: Runs full pipeline including publishing to PyPI
+# - Manual workflow dispatch: Runs full pipeline including publishing to PyPI
+
 on:
+  push:
+    branches: [ main ]
   pull_request:
     branches: [ main ]
   release:
@@ -38,6 +46,10 @@ jobs:
       - name: Get version from git tag
         id: get-version
         run: |
+          # Version strategy:
+          # - Release/workflow_dispatch: Use the provided tag version
+          # - PR/Push to main: Use dev-{commit-hash} for artifact naming
+          
           if [ "${{ github.event_name }}" = "release" ]; then
             VERSION="${{ github.event.release.tag_name }}"
             # Ensure we're on the right tag
@@ -47,12 +59,12 @@ jobs:
             # Ensure we're on the right tag
             git checkout $VERSION
           else
-            # For PRs, use the current commit
+            # For PRs and pushes to main, use the current commit
             VERSION="dev-$(git rev-parse --short HEAD)"
           fi
           
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Publishing version: $VERSION"
+          echo "Build version: $VERSION"
 
       - name: Install dependencies
         run: |
@@ -149,9 +161,8 @@ jobs:
           import zephflow
           print(f'ZephFlow version: {zephflow.__version__}')
 
-  # Only run publishing jobs for releases and workflow_dispatch, not for PRs
   publish-to-testpypi:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     needs: [ build-and-test, test-on-multiple-platforms ]
     runs-on: ubuntu-latest
 
@@ -186,7 +197,7 @@ jobs:
           twine upload --skip-existing dist/*
 
   verify-testpypi-installation:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     needs: [ build-and-test, publish-to-testpypi ]
     runs-on: ubuntu-latest
 
@@ -236,7 +247,7 @@ jobs:
           print(f'TestPyPI version: {zephflow.__version__}')
 
   publish-to-pypi:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     needs: [ build-and-test, test-on-multiple-platforms, verify-testpypi-installation ]
     runs-on: ubuntu-latest
 
@@ -270,7 +281,7 @@ jobs:
           twine upload --skip-existing dist/*
 
   verify-pypi-installation:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     needs: [ build-and-test, publish-to-pypi ]
     runs-on: ${{ matrix.os }}
     strategy:
