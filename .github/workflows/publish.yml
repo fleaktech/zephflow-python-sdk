@@ -78,10 +78,24 @@ jobs:
           echo "Built package with version: $(poetry version -s)"
 
       - name: Test local installation
+        shell: python
         run: |
-          # Test installing the built package
-          pip install dist/*.whl
-          python -c "import zephflow; print(f'Installed version: {zephflow.__version__}')"
+          import glob
+          import subprocess
+          import sys
+          
+          # Find the wheel file
+          wheel_files = glob.glob('dist/*.whl')
+          if not wheel_files:
+              print("No wheel files found in dist/")
+              sys.exit(1)
+          
+          # Install the wheel
+          subprocess.check_call([sys.executable, '-m', 'pip', 'install', wheel_files[0]])
+          
+          # Test import
+          import zephflow
+          print(f'Installed version: {zephflow.__version__}')
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -116,9 +130,24 @@ jobs:
           path: dist/
 
       - name: Test installation from wheel
+        shell: python
         run: |
-          pip install dist/*.whl
-          python -c "import zephflow; print(f'ZephFlow version: {zephflow.__version__}')"
+          import glob
+          import subprocess
+          import sys
+          
+          # Find the wheel file
+          wheel_files = glob.glob('dist/*.whl')
+          if not wheel_files:
+              print("No wheel files found in dist/")
+              sys.exit(1)
+          
+          # Install the wheel
+          subprocess.check_call([sys.executable, '-m', 'pip', 'install', wheel_files[0]])
+          
+          # Test import
+          import zephflow
+          print(f'ZephFlow version: {zephflow.__version__}')
 
   # Only run publishing jobs for releases and workflow_dispatch, not for PRs
   publish-to-testpypi:
@@ -166,18 +195,37 @@ jobs:
           java-version: '21'
 
       - name: Wait for TestPyPI propagation
-        run: sleep 60
+        shell: python
+        run: |
+          import time
+          print("Waiting 60 seconds for TestPyPI propagation...")
+          time.sleep(60)
 
       - name: Install from TestPyPI
+        shell: python
         run: |
-          VERSION="${{ needs.build-and-test.outputs.version }}"
-          VERSION="${VERSION#v}"  # Remove 'v' prefix
+          import subprocess
+          import sys
+          import os
           
-          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ zephflow==$VERSION
+          version = os.environ['VERSION']
+          if version.startswith('v'):
+              version = version[1:]  # Remove 'v' prefix
+          
+          subprocess.check_call([
+              sys.executable, '-m', 'pip', 'install',
+              '--index-url', 'https://test.pypi.org/simple/',
+              '--extra-index-url', 'https://pypi.org/simple/',
+              f'zephflow=={version}'
+          ])
+        env:
+          VERSION: ${{ needs.build-and-test.outputs.version }}
 
       - name: Verify TestPyPI installation
+        shell: python
         run: |
-          python -c "import zephflow; print(f'TestPyPI version: {zephflow.__version__}')"
+          import zephflow
+          print(f'TestPyPI version: {zephflow.__version__}')
 
   publish-to-pypi:
     if: github.event_name != 'pull_request'
@@ -224,15 +272,32 @@ jobs:
           java-version: '21'
 
       - name: Wait for PyPI propagation
-        run: sleep 60
+        shell: python
+        run: |
+          import time
+          print("Waiting 60 seconds for PyPI propagation...")
+          time.sleep(60)
 
       - name: Install from PyPI
+        shell: python
         run: |
-          VERSION="${{ needs.build-and-test.outputs.version }}"
-          VERSION="${VERSION#v}"  # Remove 'v' prefix
+          import subprocess
+          import sys
+          import os
           
-          pip install zephflow==$VERSION
+          version = os.environ['VERSION']
+          if version.startswith('v'):
+              version = version[1:]  # Remove 'v' prefix
+          
+          subprocess.check_call([
+              sys.executable, '-m', 'pip', 'install',
+              f'zephflow=={version}'
+          ])
+        env:
+          VERSION: ${{ needs.build-and-test.outputs.version }}
 
       - name: Verify PyPI installation
+        shell: python
         run: |
-          python -c "import zephflow; print(f'PyPI version: {zephflow.__version__}')"
+          import zephflow
+          print(f'PyPI version: {zephflow.__version__}')
