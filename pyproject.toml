@@ -1,0 +1,76 @@
+[tool.poetry]
+name = "zephflow"
+version = "0.0.0"
+description = "Python SDK for ZephFlow data processing pipelines"
+authors = ["Fleak Tech Inc. <contact@fleak.ai>"]
+readme = "README.md"
+license = "Apache-2.0"
+repository = "https://github.com/fleaktech/zephflow-python-sdk"
+documentation = "https://docs.fleak.ai/zephflow"
+homepage = "https://github.com/fleaktech/zephflow-python-sdk"
+keywords = ["data-processing", "streaming", "etl", "pipeline", "workflow"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: System :: Distributed Computing",
+]
+include = ["zephflow/py.typed"]
+packages = [{include = "zephflow"}]
+
+[tool.poetry.dependencies]
+python = "^3.8.1"
+py4j = "^0.10.9.7"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+pytest-cov = "^4.0"
+black = "^23.0"
+isort = "^5.0"
+flake8 = "^6.0"
+mypy = "^1.0"
+pre-commit = "^3.0"
+poetry-dynamic-versioning = "^1.0"
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.8"
+packages = ["zephflow"]
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "py4j.java_gateway"
+ignore_missing_imports = true
+
+
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+style = "pep440"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-v --cov=zephflow --cov-report=term-missing"
