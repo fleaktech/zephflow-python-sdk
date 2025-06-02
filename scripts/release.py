@@ -1,221 +1,362 @@
 #!/usr/bin/env python3
 """
-Release script for ZephFlow Python SDK.
+Release automation script for ZephFlow Python SDK.
 
-This script helps coordinate releases between the Java SDK and Python SDK.
-It ensures version numbers stay in sync and handles the release process.
-
-Usage:
-    python scripts/release.py --version 0.2.1
-    python scripts/release.py --version 0.2.2-rc.1
+This script automates the release process after manual version updates in zephflow/versions.py.
+It reads versions, validates them, runs tests, creates git tags, and pushes them.
 """
 
 import argparse
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Tuple, Optional
 
 
-def run_command(cmd, check=True):
-  """Run a shell command and return the output."""
-  print(f"Running: {cmd}")
-  result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-  if check and result.returncode != 0:
-    print(f"Error: {result.stderr}")
-    sys.exit(1)
-  return result
+def run_command(cmd: list[str], dry_run: bool = False, capture_output: bool = False) -> Optional[str]:
+  """
+  Execute a shell command.
 
+  Args:
+      cmd: Command as list of strings
+      dry_run: If True, only print the command without executing
+      capture_output: If True, capture and return the output
 
-def check_poetry_installed():
-  """Check if Poetry is installed."""
-  result = run_command("poetry --version", check=False)
-  if result.returncode != 0:
-    print("Error: Poetry is not installed.")
-    print("Install it with: curl -sSL https://install.python-poetry.org | python3 -")
-    sys.exit(1)
-  print(f"Using {result.stdout.strip()}")
+  Returns:
+      Command output if capture_output is True, None otherwise
 
+  Raises:
+      SystemExit: If command fails
+  """
+  print(f"{'[DRY RUN] Would execute' if dry_run else 'Executing'}: {' '.join(cmd)}")
 
-def create_git_tag_for_version(version):
-  """Create git tag for the version (used by poetry-dynamic-versioning)."""
-  # Check if we have uncommitted changes
-  result = run_command("git status --porcelain", check=False)
-  if result.stdout.strip():
-    print("Error: You have uncommitted changes. Please commit them first.")
-    sys.exit(1)
-
-  # Check if tag already exists
-  result = run_command(f"git tag -l v{version}", check=False)
-  if result.stdout.strip():
-    print(f"Error: Tag v{version} already exists")
-    sys.exit(1)
-
-  # Create tag
-  run_command(f'git tag -a v{version} -m "Release version {version}"')
-  print(f"Created tag v{version}")
-
-  # Update jar_manager.py GITHUB_REPO if needed
-  root_dir = Path(__file__).parent.parent
-  jar_manager_file = root_dir / "zephflow" / "jar_manager.py"
-  content = jar_manager_file.read_text()
-  # Ensure the correct repo is set
-  content = re.sub(
-    r'GITHUB_REPO = "[^"]*"',
-    'GITHUB_REPO = "fleaktech/zephflow-core"',
-    content
-  )
-  jar_manager_file.write_text(content)
-  print(f"Updated {jar_manager_file}")
-
-
-def check_java_release(version):
-  """Check if the Java SDK release exists on GitHub."""
-  # For now, just print a reminder
-  print("\n" + "=" * 60)
-  print("IMPORTANT: Before releasing the Python SDK:")
-  print(f"1. Ensure Java SDK version {version} is released at:")
-  print(f"   https://github.com/fleaktech/zephflow-core/releases/tag/v{version}")
-  print(f"2. Verify the JAR file 'sdk-{version}-all.jar' is available")
-  print("=" * 60 + "\n")
-
-  response = input("Has the Java SDK been released? (y/n): ")
-  if response.lower() != 'y':
-    print("Please release the Java SDK first.")
-    sys.exit(1)
-
-
-def install_dependencies():
-  """Install project dependencies."""
-  print("Installing dependencies...")
-  run_command("poetry install")
-
-
-def build_package():
-  """Build the Python package."""
-  print("Building package...")
-  run_command("poetry build")
-  print("Package built successfully")
-
-
-def run_tests():
-  """Run tests if they exist."""
-  if Path("tests").exists():
-    print("Running tests...")
-    run_command("poetry run pytest tests/")
-    print("Tests passed")
-  else:
-    print("No tests directory found, skipping tests")
-
-
-def run_linting():
-  """Run linting and formatting checks."""
-  print("Running code quality checks...")
-
-  # Format check
-  result = run_command("poetry run black --check zephflow/", check=False)
-  if result.returncode != 0:
-    print("Code formatting issues found. Run 'poetry run black zephflow/' to fix.")
-    response = input("Continue anyway? (y/n): ")
-    if response.lower() != 'y':
-      sys.exit(1)
-
-  # Import sort check
-  result = run_command("poetry run isort --check zephflow/", check=False)
-  if result.returncode != 0:
-    print("Import sorting issues found. Run 'poetry run isort zephflow/' to fix.")
-    response = input("Continue anyway? (y/n): ")
-    if response.lower() != 'y':
-      sys.exit(1)
-
-  # Linting
-  result = run_command("poetry run flake8 zephflow/", check=False)
-  if result.returncode != 0:
-    print("Linting issues found.")
-    response = input("Continue anyway? (y/n): ")
-    if response.lower() != 'y':
-      sys.exit(1)
-
-  print("Code quality checks completed")
-
-
-def push_git_tag():
-  """Push git tags to GitHub."""
-  response = input("Push tag to GitHub? (y/n): ")
-  if response.lower() == 'y':
-    run_command("git push origin --tags")
-    print("Tag pushed to GitHub")
-
-
-def publish_to_pypi(dry_run=False):
-  """Publish to PyPI."""
   if dry_run:
-    print("Dry run - would publish to PyPI")
-    run_command("poetry publish --dry-run")
-  else:
-    response = input("Publish to PyPI? (y/n): ")
-    if response.lower() == 'y':
-      run_command("poetry publish")
-      print("Published to PyPI!")
+    return None
+
+  try:
+    result = subprocess.run(
+      cmd,
+      check=True,
+      capture_output=capture_output,
+      text=True
+    )
+    if capture_output:
+      return result.stdout.strip()
+    return None
+  except subprocess.CalledProcessError as e:
+    print(f"Error: Command failed with exit code {e.returncode}")
+    if e.stderr:
+      print(f"stderr: {e.stderr}")
+    sys.exit(1)
+
+
+def read_versions(version_file: Path) -> Tuple[str, str]:
+  """
+  Read Python and Java SDK versions from versions.py file.
+
+  Args:
+      version_file: Path to the versions.py file
+
+  Returns:
+      Tuple of (PYTHON_SDK_VERSION, JAVA_SDK_VERSION)
+
+  Raises:
+      SystemExit: If file doesn't exist or versions can't be parsed
+  """
+  if not version_file.exists():
+    print(f"Error: Version file not found: {version_file}")
+    sys.exit(1)
+
+  print(f"Reading versions from {version_file}")
+
+  try:
+    content = version_file.read_text()
+
+    # Use regex to find the version assignments
+    python_match = re.search(r'PYTHON_SDK_VERSION\s*=\s*["\']([^"\']+)["\']', content)
+    java_match = re.search(r'JAVA_SDK_VERSION\s*=\s*["\']([^"\']+)["\']', content)
+
+    if not python_match or not java_match:
+      print("Error: Could not find version definitions in versions.py")
+      sys.exit(1)
+
+    python_version = python_match.group(1)
+    java_version = java_match.group(1)
+
+    print(f"  Python SDK version: {python_version}")
+    print(f"  Java SDK version: {java_version}")
+
+    return python_version, java_version
+
+  except Exception as e:
+    print(f"Error reading versions: {e}")
+    sys.exit(1)
+
+
+def validate_pypi_version(version: str) -> bool:
+  """
+  Validate that version string follows PEP 440 for PyPI.
+
+  Args:
+      version: Version string to validate
+
+  Returns:
+      True if valid, False otherwise
+  """
+  # PEP 440 regex pattern (simplified but covers most cases)
+  # Matches: X.Y.Z, X.Y.ZaN, X.Y.ZbN, X.Y.ZrcN, X.Y.Z.postN, X.Y.Z.devN
+  pattern = r'^(\d+!)?\d+(\.\d+)*((a|b|rc)\d+)?(\.post\d+)?(\.dev\d+)?$'
+  return bool(re.match(pattern, version))
+
+
+def validate_version_sync(python_version: str, java_version: str) -> bool:
+  """
+  Validate that Python and Java versions have synchronized major.minor versions.
+
+  Args:
+      python_version: Python SDK version
+      java_version: Java SDK version
+
+  Returns:
+      True if major.minor are aligned, False otherwise
+  """
+  # Extract major.minor from Python version
+  python_match = re.match(r'^(\d+\.\d+)', python_version)
+  if not python_match:
+    return False
+  python_major_minor = python_match.group(1)
+
+  # Extract major.minor from Java version
+  java_match = re.match(r'^(\d+\.\d+)', java_version)
+  if not java_match:
+    return False
+  java_major_minor = java_match.group(1)
+
+  return python_major_minor == java_major_minor
+
+
+def check_git_status(dry_run: bool = False) -> None:
+  """
+  Check if git working directory is clean.
+
+  Args:
+      dry_run: If True, skip the check
+
+  Raises:
+      SystemExit: If working directory is dirty
+  """
+  if dry_run:
+    print("[DRY RUN] Would check git status")
+    return
+
+  print("Checking git status...")
+
+  # Check for uncommitted changes
+  result = subprocess.run(
+    ["git", "status", "--porcelain"],
+    capture_output=True,
+    text=True
+  )
+
+  if result.stdout.strip():
+    print("Error: Working directory is not clean. Please commit or stash your changes.")
+    print("Uncommitted changes:")
+    print(result.stdout)
+    sys.exit(1)
+
+  print("  Working directory is clean")
+
+
+def verify_version_in_head(version_file: Path, python_version: str, java_version: str, dry_run: bool = False) -> None:
+  """
+  Verify that HEAD commit contains the expected versions in versions.py.
+
+  Args:
+      version_file: Path to versions.py
+      python_version: Expected Python SDK version
+      java_version: Expected Java SDK version
+      dry_run: If True, skip the check
+
+  Raises:
+      SystemExit: If versions don't match
+  """
+  if dry_run:
+    print("[DRY RUN] Would verify versions in HEAD commit")
+    return
+
+  print("Verifying versions in HEAD commit...")
+
+  # Get content of versions.py from HEAD
+  relative_path = version_file.relative_to(Path.cwd())
+  head_content = run_command(
+    ["git", "show", f"HEAD:{relative_path}"],
+    capture_output=True
+  )
+
+  if not head_content:
+    print("Error: Could not read versions.py from HEAD commit")
+    sys.exit(1)
+
+  # Check if versions match
+  if f'PYTHON_SDK_VERSION = "{python_version}"' not in head_content and \
+      f"PYTHON_SDK_VERSION = '{python_version}'" not in head_content:
+    print(f"Error: Python version {python_version} not found in HEAD commit")
+    sys.exit(1)
+
+  if f'JAVA_SDK_VERSION = "{java_version}"' not in head_content and \
+      f"JAVA_SDK_VERSION = '{java_version}'" not in head_content:
+    print(f"Error: Java version {java_version} not found in HEAD commit")
+    sys.exit(1)
+
+  print("  Versions verified in HEAD commit")
+
+
+def run_tests(dry_run: bool = False) -> None:
+  """
+  Run unit tests using pytest with coverage.
+
+  Args:
+      dry_run: If True, skip running tests
+
+  Raises:
+      SystemExit: If tests fail
+  """
+  print("\nRunning unit tests...")
+
+  cmd = ["poetry", "run", "pytest", "tests/", "--cov=zephflow", "--cov-report=term-missing"]
+
+  if dry_run:
+    print(f"[DRY RUN] Would execute: {' '.join(cmd)}")
+    return
+
+  try:
+    subprocess.run(cmd, check=True)
+    print("  All tests passed!")
+  except subprocess.CalledProcessError:
+    print("Error: Unit tests failed. Aborting release.")
+    sys.exit(1)
+
+
+def confirm_action(message: str) -> bool:
+  """
+  Ask user for confirmation.
+
+  Args:
+      message: Confirmation message
+
+  Returns:
+      True if user confirms, False otherwise
+  """
+  while True:
+    response = input(f"{message} (Y/n): ").strip().lower()
+    if response in ['y', 'yes', '']:
+      return True
+    elif response in ['n', 'no']:
+      return False
     else:
-      print("Skipping PyPI publication")
+      print("Please enter Y or n")
+
+
+def create_and_push_tag(version: str, tag_message: str, dry_run: bool = False) -> None:
+  """
+  Create an annotated git tag and push it to origin.
+
+  Args:
+      version: Version string to use as tag name
+      tag_message: Message for the annotated tag
+      dry_run: If True, skip actual git commands
+  """
+  tag_name = version
+
+  print(f"\nCreating git tag: {tag_name}")
+  print(f"Tag message: {tag_message}")
+
+  if not dry_run and not confirm_action("Create and push this tag?"):
+    print("Tag creation cancelled.")
+    return
+
+  # Create annotated tag
+  run_command(
+    ["git", "tag", "-a", tag_name, "-m", tag_message],
+    dry_run=dry_run
+  )
+
+  print(f"\nPushing tag {tag_name} to origin...")
+
+  # Push tag to origin
+  run_command(
+    ["git", "push", "origin", tag_name],
+    dry_run=dry_run
+  )
+
+  if not dry_run:
+    print(f"\nSuccessfully created and pushed tag {tag_name}")
 
 
 def main():
-  parser = argparse.ArgumentParser(description="Release ZephFlow Python SDK")
-  parser.add_argument("--version", required=True, help="Version to release (e.g., 0.2.1)")
-  parser.add_argument("--skip-java-check", action="store_true",
-                      help="Skip checking for Java SDK release")
-  parser.add_argument("--skip-tests", action="store_true", help="Skip running tests")
-  parser.add_argument("--skip-linting", action="store_true", help="Skip linting checks")
-  parser.add_argument("--skip-tag", action="store_true", help="Skip creating git tag")
-  parser.add_argument("--dry-run", action="store_true",
-                      help="Perform a dry run (don't actually publish)")
+  """Main entry point for the release script."""
+  parser = argparse.ArgumentParser(
+    description="Release automation script for ZephFlow Python SDK"
+  )
+  parser.add_argument(
+    "--tag-message", "--message", "-m",
+    help="Custom message for the annotated Git tag",
+    dest="tag_message"
+  )
+  parser.add_argument(
+    "--dry-run",
+    action="store_true",
+    help="Print what actions would be taken without executing them"
+  )
 
   args = parser.parse_args()
 
-  print(f"Preparing to release ZephFlow Python SDK version {args.version}")
+  # Determine project root and version file path
+  script_dir = Path(__file__).parent
+  project_root = script_dir.parent
+  version_file = project_root / "zephflow" / "versions.py"
 
-  # Check Poetry is installed
-  check_poetry_installed()
+  # Change to project root directory
+  os.chdir(project_root)
+  print(f"Working directory: {project_root}")
 
-  # Check Java release
-  if not args.skip_java_check:
-    check_java_release(args.version)
+  # Step 1: Read versions
+  python_version, java_version = read_versions(version_file)
 
-  # Create git tag for dynamic versioning
-  create_git_tag_for_version(args.version)
+  # Step 2: Check git status
+  check_git_status(args.dry_run)
 
-  # Install dependencies
-  install_dependencies()
+  # Step 3: Validate Python SDK version for PyPI
+  print("\nValidating version formats...")
+  if not validate_pypi_version(python_version):
+    print(f"Error: Python version '{python_version}' is not valid for PyPI (PEP 440)")
+    print("Valid formats: X.Y.Z, X.Y.ZaN, X.Y.ZbN, X.Y.ZrcN, X.Y.Z.postN, X.Y.Z.devN")
+    sys.exit(1)
+  print(f"  Python version '{python_version}' is valid for PyPI")
 
-  # Run linting
-  if not args.skip_linting:
-    run_linting()
+  # Step 4: Validate version synchronization
+  if not validate_version_sync(python_version, java_version):
+    print(f"Error: Major.minor versions are not synchronized")
+    print(f"  Python: {python_version}")
+    print(f"  Java: {java_version}")
+    sys.exit(1)
+  print("  Major.minor versions are synchronized")
 
-  # Run tests
-  if not args.skip_tests:
-    run_tests()
+  # Step 5: Verify versions in HEAD commit
+  verify_version_in_head(version_file, python_version, java_version, args.dry_run)
 
-  # Build package
-  build_package()
+  # Step 6: Run unit tests
+  run_tests(args.dry_run)
 
-  # Push git tag
-  if not args.skip_tag:
-    push_git_tag()
+  # Step 7: Create and push tag
+  tag_message = args.tag_message or f"Release version {python_version}"
+  create_and_push_tag(python_version, tag_message, args.dry_run)
 
-  # Publish to PyPI
-  publish_to_pypi(dry_run=args.dry_run)
-
-  print("\n" + "=" * 60)
-  print("Release preparation complete!")
-  print("\nNext steps:")
-  print("1. If you haven't already, push the tag: git push origin --tags")
-  print("2. Create a GitHub release from the tag")
-  print("3. The GitHub Action will automatically publish to PyPI")
-  print("\nNote: Version is now managed by git tags via poetry-dynamic-versioning")
-  print("The package version will be automatically set from the git tag.")
-  print("=" * 60)
+  print("\nRelease process completed successfully!")
+  if args.dry_run:
+    print("(This was a dry run - no actual changes were made)")
 
 
 if __name__ == "__main__":

@@ -11,18 +11,15 @@ Example:
     >>> flow.execute("job-1", "dev", "my-service")
 """
 
-from importlib.metadata import PackageNotFoundError, version
-
-try:
-    __version__ = version("zephflow")
-except PackageNotFoundError:
-    __version__ = "unknown"
-
 from . import core, jar_manager
 from .core import ZephFlow, start_flow
 from .jar_manager import JarManager
+from .versions import PYTHON_SDK_VERSION, JAVA_SDK_VERSION
 
-__all__ = ["ZephFlow", "start_flow", "JarManager", "__version__"]
+# Use versions.py as the source of truth
+__version__ = PYTHON_SDK_VERSION
+
+__all__ = ["ZephFlow", "start_flow", "JarManager", "__version__", "JAVA_SDK_VERSION"]
 
 # Clean up namespace
 del core, jar_manager

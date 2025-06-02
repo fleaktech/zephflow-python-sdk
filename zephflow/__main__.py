@@ -13,6 +13,7 @@ import sys
 
 from . import __version__
 from .jar_manager import JarManager
+from .versions import JAVA_SDK_VERSION
 
 
 def main():
@@ -52,7 +53,7 @@ Examples:
 
     if args.version:
         print(f"ZephFlow Python SDK version {__version__}")
-        print(f"Required Java SDK version: {__version__}")
+        print(f"Required Java SDK version: {JAVA_SDK_VERSION}")
         return 0
 
     if args.clear_cache:
