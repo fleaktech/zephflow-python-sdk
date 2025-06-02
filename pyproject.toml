@@ -23,7 +23,7 @@ classifiers = [
   "Topic :: System :: Distributed Computing",
 ]
 include = ["zephflow/py.typed"]
-packages = [{include = "zephflow"}]
+packages = [{ include = "zephflow" }]
 
 [tool.poetry.dependencies]
 python = "^3.8.1"
@@ -38,12 +38,11 @@ isort = "^5.0"
 flake8 = "^6.0"
 mypy = "^1.0"
 pre-commit = "^3.0"
-poetry-dynamic-versioning = "^1.0"
 
 
 [build-system]
-requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
-build-backend = "poetry_dynamic_versioning.backend"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 100
@@ -63,12 +62,6 @@ disallow_untyped_defs = false
 [[tool.mypy.overrides]]
 module = "py4j.java_gateway"
 ignore_missing_imports = true
-
-
-[tool.poetry-dynamic-versioning]
-enable = true
-vcs = "git"
-style = "pep440"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

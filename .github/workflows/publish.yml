@@ -48,7 +48,7 @@ jobs:
         run: |
           # Version strategy:
           # - Release/workflow_dispatch: Use the provided tag version
-          # - PR/Push to main: Use dev-{commit-hash} for artifact naming
+          # - PR/Push to main: Use dev version with commit hash
           
           if [ "${{ github.event_name }}" = "release" ]; then
             VERSION="${{ github.event.release.tag_name }}"
@@ -59,8 +59,12 @@ jobs:
             # Ensure we're on the right tag
             git checkout $VERSION
           else
-            # For PRs and pushes to main, use the current commit
-            VERSION="dev-$(git rev-parse --short HEAD)"
+            # For PRs and pushes to main, use a PEP 440 compatible dev version
+            # Get the last tag and append dev info
+            LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
+            LAST_TAG="${LAST_TAG#v}"  # Remove v prefix if present
+            COMMIT_SHORT=$(git rev-parse --short HEAD)
+            VERSION="${LAST_TAG}.dev${COMMIT_SHORT}"
           fi
           
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -84,6 +88,16 @@ jobs:
       - name: Run tests
         run: |
           poetry run pytest tests/ --cov=zephflow --cov-report=term-missing
+
+      - name: Set package version
+        run: |
+          # Remove 'v' prefix if present
+          VERSION="${{ steps.get-version.outputs.version }}"
+          VERSION="${VERSION#v}"
+          
+          # Set the version in pyproject.toml
+          poetry version $VERSION
+          echo "Set package version to: $(poetry version -s)"
 
       - name: Build package
         run: |
