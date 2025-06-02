@@ -1,0 +1,40 @@
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0 # Use the latest version
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  - repo: https://github.com/psf/black
+    rev: 24.4.2 # Use the version of Black you prefer/use in CI
+    hooks:
+      - id: black
+        args: [ zephflow/, tests/ ]
+        language_version: python3.10
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2 # Use the version of isort you prefer/use in CI
+    hooks:
+      - id: isort
+        args: [ zephflow/, tests/ ]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.0
+    hooks:
+      - id: flake8
+        args: [ zephflow/ ]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.1
+    hooks:
+      - id: mypy
+        args: [ zephflow/, --ignore-missing-imports ]
+        additional_dependencies:
+          - types-requests
+          - types-PyYAML
+        pass_filenames: false

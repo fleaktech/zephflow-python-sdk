@@ -14,7 +14,7 @@ Example:
 from . import core, jar_manager
 from .core import ZephFlow, start_flow
 from .jar_manager import JarManager
-from .versions import PYTHON_SDK_VERSION, JAVA_SDK_VERSION
+from .versions import JAVA_SDK_VERSION, PYTHON_SDK_VERSION
 
 # Use versions.py as the source of truth
 __version__ = PYTHON_SDK_VERSION

@@ -7,8 +7,10 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Optional
 
 from .versions import JAVA_SDK_VERSION
+
 
 class JarManager:
     """Manages the ZephFlow Java SDK JAR file."""
@@ -32,7 +34,7 @@ class JarManager:
 
         return base / "zephflow"
 
-    def get_jar_path(self, version: str = None) -> str:
+    def get_jar_path(self, version: Optional[str] = None) -> str:
         """Get the path to the JAR file, downloading if necessary."""
         # Use configured version if none provided
         if version is None:
