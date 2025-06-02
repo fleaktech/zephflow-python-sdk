@@ -7,6 +7,9 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Optional
+
+from .versions import JAVA_SDK_VERSION
 
 
 class JarManager:
@@ -31,8 +34,12 @@ class JarManager:
 
         return base / "zephflow"
 
-    def get_jar_path(self, version: str) -> str:
+    def get_jar_path(self, version: Optional[str] = None) -> str:
         """Get the path to the JAR file, downloading if necessary."""
+        # Use configured version if none provided
+        if version is None:
+            version = JAVA_SDK_VERSION
+
         # Check for environment variable override (for local development)
         env_jar_path = os.environ.get("ZEPHFLOW_MAIN_JAR")
         if env_jar_path and os.path.exists(env_jar_path):

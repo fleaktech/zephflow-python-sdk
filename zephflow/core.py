@@ -5,7 +5,6 @@ from typing import Any, Dict, Optional
 
 from py4j.java_gateway import GatewayParameters, JavaGateway, launch_gateway
 
-from . import __version__
 from .jar_manager import JarManager
 
 
@@ -30,8 +29,8 @@ class ZephFlow:
             main_jar_path = os.environ.get("ZEPHFLOW_MAIN_JAR")
 
             if not main_jar_path:
-                # Download JAR if needed
-                main_jar_path = ZephFlow._jar_manager.get_jar_path(__version__)
+                # Download JAR if needed - use default Java SDK version
+                main_jar_path = ZephFlow._jar_manager.get_jar_path()
 
             # Get additional classpath if provided
             deps_classpath = os.environ.get("ZEPHFLOW_DEPS_CLASSPATH", "")
