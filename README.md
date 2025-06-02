@@ -1,6 +1,6 @@
 # ZephFlow Python SDK
 
-[![PyPI version](https://badge.fury.io/py/zephflow.svg)](https://badge.fury.io/py/zephflow)
+[![PyPI version](https://img.shields.io/pypi/v/zephflow.svg)](https://pypi.org/project/zephflow/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/zephflow.svg)](https://pypi.org/project/zephflow/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
