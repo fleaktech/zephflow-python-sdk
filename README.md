@@ -23,7 +23,7 @@ For comprehensive documentation, tutorials, and API reference, visit: [https://d
 ## Prerequisites
 
 - Python 3.8 or higher
-- Java 21 or higher (required for the processing engine)
+- Java 17 or higher (required for the processing engine)
 
 ## Installation
 
