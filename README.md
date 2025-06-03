@@ -68,6 +68,22 @@ result = flow.process(events)
 print(f"Processed {result.getOutputEvents().size()} events")
 ```
 
+## Troubleshooting
+### macOS SSL Certificate Issue
+If you're on macOS and encounter an error like:
+
+```<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1007)>
+This indicates that Python cannot verify SSL certificates due to missing system root certificates.
+```
+
+#### Solution
+Run the certificate installation script that comes with your Python installation:
+
+```
+/Applications/Python\ 3.x/Install\ Certificates.command
+Replace 3.x with your installed version (e.g., 3.10). This installs the necessary certificates so Python can verify HTTPS downloads.
+```
+
 ## Core Concepts
 
 ### Filtering
