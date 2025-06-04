@@ -79,7 +79,7 @@ class JarManager:
 
             # Extract version number (handles both old and new version formats)
             # Old: java version "1.8.0_281"
-            # New: java version "17.0.0"
+            # New: java version "17.0.1"
             version_match = re.search(r'version "(\d+)(?:\.(\d+))?', version_output)
 
             if version_match:

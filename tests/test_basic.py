@@ -67,7 +67,7 @@ class TestJarManager:
 
 
 class TestZephFlowIntegration:
-    """Integration tests for ZephFlow (requires mocking since we can't start actual Java gateway)."""
+    """Integration tests for ZephFlow (use mocking since we can't start actual Java gateway)."""
 
     def test_start_flow(self):
         """Test creating a new flow."""
