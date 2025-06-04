@@ -68,7 +68,7 @@ class JarManager:
         return str(jar_path)
 
     def _check_java_version(self) -> None:
-        """Check if Java 21 or higher is installed."""
+        """Check if Java 17 or higher is installed."""
         try:
             result = subprocess.run(
                 ["java", "-version"], capture_output=True, text=True, check=True
@@ -79,7 +79,7 @@ class JarManager:
 
             # Extract version number (handles both old and new version formats)
             # Old: java version "1.8.0_281"
-            # New: java version "21.0.1"
+            # New: java version "17.0.0"
             version_match = re.search(r'version "(\d+)(?:\.(\d+))?', version_output)
 
             if version_match:
@@ -88,10 +88,10 @@ class JarManager:
                 if major == 1 and version_match.group(2):
                     major = int(version_match.group(2))
 
-                if major < 21:
+                if major < 17:
                     raise RuntimeError(
-                        f"Java 21 or higher is required, but found Java {major}. "
-                        "Please install Java 21 from https://adoptium.net/"
+                        f"Java 17 or higher is required, but found Java {major}. "
+                        "Please install Java 17 from https://adoptium.net/"
                     )
             else:
                 print("Warning: Could not determine Java version")
@@ -99,7 +99,7 @@ class JarManager:
         except FileNotFoundError:
             raise RuntimeError(
                 "Java is not installed or not in PATH. "
-                "Please install Java 21 from https://adoptium.net/"
+                "Please install Java 17 from https://adoptium.net/"
             )
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to check Java version: {e}")
