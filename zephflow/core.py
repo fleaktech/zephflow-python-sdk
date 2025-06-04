@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 from py4j.java_gateway import GatewayParameters, JavaGateway, launch_gateway
 
 from .jar_manager import JarManager
-from .utils import read_file, is_json
+from .utils import is_json, read_file
 
 
 class ZephFlow:
