@@ -94,7 +94,9 @@ class ZephFlow:
         """
 
         ZephFlow._ensure_gateway()
-        java_zephflow_class = ZephFlow._jvm.io.fleak.zephflow.sdk.ZephFlow  # type: ignore[attr-defined]
+        java_zephflow_class = (
+            ZephFlow._jvm.io.fleak.zephflow.sdk.ZephFlow  # type: ignore[attr-defined]
+        )
 
         job_id = job_id or str(uuid.uuid4())
         env = env or os.environ.get("ZEPHFLOW_ENV", "default")
