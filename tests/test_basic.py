@@ -37,7 +37,7 @@ class TestJarManager:
     def test_java_version_check(self, mock_run):
         """Test Java version checking."""
         # Mock Java 21 output
-        mock_run.return_value = Mock(returncode=0, stderr='openjdk version "21.0.1" 2023-10-17')
+        mock_run.return_value = Mock(returncode=0, stderr='openjdk version "17.0.1" 2023-10-17')
 
         manager = zephflow.JarManager()
         # Should not raise an exception
@@ -46,7 +46,7 @@ class TestJarManager:
         # Mock Java 11 output (too old)
         mock_run.return_value = Mock(returncode=0, stderr='openjdk version "11.0.1" 2018-10-16')
 
-        with pytest.raises(RuntimeError, match="Java 21 or higher is required"):
+        with pytest.raises(RuntimeError, match="Java 17 or higher is required"):
             manager._check_java_version()
 
     def test_version_cache(self, tmp_path):
@@ -145,6 +145,10 @@ def test_version():
 
 
 def test_execute_dag_yaml():
+    with open("/tmp/input.csv", "w") as f:
+        f.write("a,b,c\n")
+        f.write("1,2,3\n")
+
     zephflow.ZephFlow.execute_dag(
         """
 jobContext:
@@ -156,7 +160,7 @@ dag:
   - id: "a"
     commandName: "filesource"
     config: |
-        {"filePath": "../examples/resources/input.csv",
+        {"filePath": "/tmp/input.csv",
         "encodingType": "CSV"}
     outputs:
       - "b"
@@ -182,7 +186,7 @@ def test_execute_dag_json():
     {
       "id": "a",
       "commandName": "filesource",
-      "config": "{\\"filePath\\": \\"../examples/resources/input.csv\\", \\"encodingType\\": \\"CSV\\"}",
+      "config": "{\\"filePath\\": \\"/tmp/input.csv\\", \\"encodingType\\": \\"CSV\\"}",
       "outputs": ["b"]
     },
     {
