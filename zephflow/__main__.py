@@ -35,7 +35,7 @@ Examples:
     parser.add_argument("--clear-cache", action="store_true", help="Clear the JAR cache directory")
 
     parser.add_argument(
-        "--check-java", action="store_true", help="Check if Java 21 is properly installed"
+        "--check-java", action="store_true", help="Check if Java 17 is properly installed"
     )
 
     parser.add_argument(
@@ -65,7 +65,7 @@ Examples:
         jar_manager = JarManager()
         try:
             jar_manager._check_java_version()
-            print("✅ Java 21 or higher is properly installed")
+            print("✅ Java 17 or higher is properly installed")
             return 0
         except RuntimeError as e:
             print(f"❌ {e}")

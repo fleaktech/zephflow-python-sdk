@@ -46,7 +46,7 @@ class TestJarManager:
         # Mock Java 11 output (too old)
         mock_run.return_value = Mock(returncode=0, stderr='openjdk version "11.0.1" 2018-10-16')
 
-        with pytest.raises(RuntimeError, match="Java 21 or higher is required"):
+        with pytest.raises(RuntimeError, match="Java 17 or higher is required"):
             manager._check_java_version()
 
     def test_version_cache(self, tmp_path):
@@ -67,7 +67,7 @@ class TestJarManager:
 
 
 class TestZephFlowIntegration:
-    """Integration tests for ZephFlow (requires mocking since we can't start actual Java gateway)."""
+    """Integration tests for ZephFlow (use mocking since we can't start actual Java gateway)."""
 
     def test_start_flow(self):
         """Test creating a new flow."""

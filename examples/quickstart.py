@@ -160,7 +160,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Error running examples: {e}")
         print("\nMake sure:")
-        print("- Java 21 is installed")
+        print("- Java 17 is installed")
         print("- You have internet connection (for JAR download)")
         print("- Or set ZEPHFLOW_MAIN_JAR environment variable")
 
