@@ -142,3 +142,52 @@ def test_version():
     assert isinstance(zephflow.__version__, str)
     # Check version format (basic check)
     assert "." in zephflow.__version__
+
+
+def test_execute_dag_yaml():
+    zephflow.ZephFlow.execute_dag("""
+jobContext:
+  otherProperties:
+  metricTags:
+  dlqConfig:
+
+dag:
+  - id: "a"
+    commandName: "filesource"
+    config: |
+        {"filePath": "../examples/resources/input.csv",
+        "encodingType": "CSV"}
+    outputs:
+      - "b"
+
+  - id: "b"
+    commandName: "stdout"
+    config: |
+        {"encodingType": "JSON_OBJECT"}    
+    """)
+
+
+def test_execute_dag_json():
+    zephflow.ZephFlow.execute_dag('''
+{
+  "jobContext": {
+    "otherProperties": null,
+    "metricTags": null,
+    "dlqConfig": null
+  },
+  "dag": [
+    {
+      "id": "a",
+      "commandName": "filesource",
+      "config": "{\\"filePath\\": \\"../examples/resources/input.csv\\", \\"encodingType\\": \\"CSV\\"}",
+      "outputs": ["b"]
+    },
+    {
+      "id": "b",
+      "commandName": "stdout",
+      "config": "{\\"encodingType\\": \\"JSON_OBJECT\\"}"
+    }
+  ]
+}
+'''.strip())
+

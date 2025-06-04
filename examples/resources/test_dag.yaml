@@ -1,0 +1,18 @@
+jobContext:
+  otherProperties:
+  metricTags:
+  dlqConfig:
+
+dag:
+  - id: "a"
+    commandName: "filesource"
+    config: |
+        {"filePath": "resources/input.csv",
+        "encodingType": "CSV"}
+    outputs:
+      - "b"
+
+  - id: "b"
+    commandName: "stdout"
+    config: |
+        {"encodingType": "JSON_OBJECT"}
