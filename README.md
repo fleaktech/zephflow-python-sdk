@@ -68,6 +68,14 @@ result = flow.process(events)
 print(f"Processed {result.getOutputEvents().size()} events")
 ```
 
+If you already have a workflow file:
+
+```python
+import zephflow
+
+zephflow.ZephFlow.execute_dag("my_dag.yaml")
+```
+
 ## Troubleshooting
 ### macOS SSL Certificate Issue
 If you're on macOS and encounter an error like:

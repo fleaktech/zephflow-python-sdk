@@ -37,7 +37,7 @@ class TestJarManager:
     def test_java_version_check(self, mock_run):
         """Test Java version checking."""
         # Mock Java 21 output
-        mock_run.return_value = Mock(returncode=0, stderr='openjdk version "21.0.1" 2023-10-17')
+        mock_run.return_value = Mock(returncode=0, stderr='openjdk version "17.0.1" 2023-10-17')
 
         manager = zephflow.JarManager()
         # Should not raise an exception
@@ -142,3 +142,59 @@ def test_version():
     assert isinstance(zephflow.__version__, str)
     # Check version format (basic check)
     assert "." in zephflow.__version__
+
+
+def test_execute_dag_yaml():
+    with open("/tmp/input.csv", "w") as f:
+        f.write("a,b,c\n")
+        f.write("1,2,3\n")
+
+    zephflow.ZephFlow.execute_dag(
+        """
+jobContext:
+  otherProperties:
+  metricTags:
+  dlqConfig:
+
+dag:
+  - id: "a"
+    commandName: "filesource"
+    config: |
+        {"filePath": "/tmp/input.csv",
+        "encodingType": "CSV"}
+    outputs:
+      - "b"
+
+  - id: "b"
+    commandName: "stdout"
+    config: |
+        {"encodingType": "JSON_OBJECT"}    
+    """
+    )
+
+
+def test_execute_dag_json():
+    zephflow.ZephFlow.execute_dag(
+        """
+{
+  "jobContext": {
+    "otherProperties": null,
+    "metricTags": null,
+    "dlqConfig": null
+  },
+  "dag": [
+    {
+      "id": "a",
+      "commandName": "filesource",
+      "config": "{\\"filePath\\": \\"/tmp/input.csv\\", \\"encodingType\\": \\"CSV\\"}",
+      "outputs": ["b"]
+    },
+    {
+      "id": "b",
+      "commandName": "stdout",
+      "config": "{\\"encodingType\\": \\"JSON_OBJECT\\"}"
+    }
+  ]
+}
+""".strip()
+    )

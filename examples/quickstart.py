@@ -2,10 +2,11 @@
 """
 ZephFlow Python SDK Quick Start Example
 
-This example demonstrates basic usage of the ZephFlow Python SDK.
+This example demonstrates the basic usage of the ZephFlow Python SDK.
 """
 
 import zephflow
+from zephflow import ZephFlow
 
 
 def simple_filter_example():
@@ -144,6 +145,11 @@ def errors_str(errors):
     return "[" + ",".join(str_parts) + "]"
 
 
+def execute_yaml_dag_example():
+    ZephFlow.execute_dag("resources/test_dag.yaml")
+    ZephFlow.execute_dag("resources/test_dag.json")
+
+
 def main():
     """Run all examples."""
     print("ZephFlow Python SDK Examples")
@@ -154,6 +160,7 @@ def main():
         transformation_example()
         merge_flows_example()
         error_handling_example()
+        execute_yaml_dag_example()
 
         print("\n✅ All examples completed successfully!")
 
