@@ -79,7 +79,7 @@ class ZephFlow:
 
     @staticmethod
     def execute_dag(
-        dag: Any, job_id: str = None, env: str = None, service: str = None, metricsProvider=None
+        dag: Any, job_id: str = "", env: str = "", service: str = "", metrics_provider: Any = None
     ):
         """
         Execute a ZephFlow DAG.
@@ -94,7 +94,7 @@ class ZephFlow:
         """
 
         ZephFlow._ensure_gateway()
-        java_zephflow_class = ZephFlow._jvm.io.fleak.zephflow.sdk.ZephFlow
+        java_zephflow_class = ZephFlow._jvm.io.fleak.zephflow.sdk.ZephFlow  # type: ignore[attr-defined]
 
         job_id = job_id or str(uuid.uuid4())
         env = env or os.environ.get("ZEPHFLOW_ENV", "default")
@@ -105,23 +105,23 @@ class ZephFlow:
             and dag.getClass().getName()
             == "io.fleak.zephflow.runner.dag.AdjacencyListDagDefinition"
         ):
-            java_zephflow_class.executeDag(job_id, env, service, dag, metricsProvider)
+            java_zephflow_class.executeDag(job_id, env, service, dag, metrics_provider)
         else:
             dag = str(dag)
 
             if dag.endswith((".yaml", ".yml")):
                 java_zephflow_class.executeYamlDag(
-                    job_id, env, service, read_file(dag), metricsProvider
+                    job_id, env, service, read_file(dag), metrics_provider
                 )
             elif dag.endswith(".json"):
                 java_zephflow_class.executeJsonDag(
-                    job_id, env, service, read_file(dag), metricsProvider
+                    job_id, env, service, read_file(dag), metrics_provider
                 )
             elif is_json(dag):
-                java_zephflow_class.executeJsonDag(job_id, env, service, dag, metricsProvider)
+                java_zephflow_class.executeJsonDag(job_id, env, service, dag, metrics_provider)
             else:
                 # Assume JSON if not YAML
-                java_zephflow_class.executeYamlDag(job_id, env, service, dag, metricsProvider)
+                java_zephflow_class.executeYamlDag(job_id, env, service, dag, metrics_provider)
 
     @staticmethod
     def merge(*flows):
