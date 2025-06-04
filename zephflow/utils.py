@@ -1,8 +1,10 @@
 import json
 
+
 def read_file(file) -> str:
     with open(file, "r") as f:
         return f.read()
+
 
 def is_json(data) -> bool:
     try:

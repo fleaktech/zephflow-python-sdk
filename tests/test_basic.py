@@ -145,7 +145,8 @@ def test_version():
 
 
 def test_execute_dag_yaml():
-    zephflow.ZephFlow.execute_dag("""
+    zephflow.ZephFlow.execute_dag(
+        """
 jobContext:
   otherProperties:
   metricTags:
@@ -164,11 +165,13 @@ dag:
     commandName: "stdout"
     config: |
         {"encodingType": "JSON_OBJECT"}    
-    """)
+    """
+    )
 
 
 def test_execute_dag_json():
-    zephflow.ZephFlow.execute_dag('''
+    zephflow.ZephFlow.execute_dag(
+        """
 {
   "jobContext": {
     "otherProperties": null,
@@ -189,5 +192,5 @@ def test_execute_dag_json():
     }
   ]
 }
-'''.strip())
-
+""".strip()
+    )
