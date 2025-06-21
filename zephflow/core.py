@@ -57,7 +57,7 @@ class ZephFlow:
             ZephFlow._jvm = ZephFlow._gateway.jvm
 
     @staticmethod
-    def from_yaml_dag(yaml_dag: str, metrics_provider: Any):
+    def from_yaml_dag(yaml_dag: str, metrics_provider: Any = None):
         ZephFlow._ensure_gateway()
         assert ZephFlow._jvm is not None  # Tell mypy that _jvm is not None
         java_zephflow_class = ZephFlow._jvm.io.fleak.zephflow.sdk.ZephFlow
