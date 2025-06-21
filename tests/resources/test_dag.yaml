@@ -1,0 +1,16 @@
+jobContext:
+  otherProperties:
+  metricTags:
+    service: "default_service"
+    env: "default_env"
+  dlqConfig:
+
+dag:
+  - id: "a"
+    commandName: "eval"
+    config: |
+      dict(
+        v=$.value,
+        v2 = 2* $.value
+      )
+    outputs:

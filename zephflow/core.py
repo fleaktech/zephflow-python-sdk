@@ -57,6 +57,13 @@ class ZephFlow:
             ZephFlow._jvm = ZephFlow._gateway.jvm
 
     @staticmethod
+    def from_yaml_dag(yaml_dag: str, metrics_provider: Any):
+        ZephFlow._ensure_gateway()
+        assert ZephFlow._jvm is not None  # Tell mypy that _jvm is not None
+        java_zephflow_class = ZephFlow._jvm.io.fleak.zephflow.sdk.ZephFlow
+        return ZephFlow(java_zephflow_class.fromYamlDag(yaml_dag, metrics_provider))
+
+    @staticmethod
     def start_flow():
         """
         Start a new ZephFlow instance with default settings.
@@ -90,7 +97,7 @@ class ZephFlow:
             job_id: Optional job ID.
             env: Optional environment (default from ZEPHFLOW_ENV).
             service: Optional service name (default from ZEPHFLOW_SERVICE).
-            metricsProvider: Optional metrics provider.
+            metrics_provider: Optional metrics provider.
         """
 
         ZephFlow._ensure_gateway()
@@ -474,7 +481,8 @@ class ZephFlow:
         run_config = NoSourceDagRunner.DagRunConfig(include_error_by_step, include_output_by_step)
 
         # Call Java process method
-        return self._java_flow.process(java_events, calling_user, run_config)
+        java_dag_result = self._java_flow.process(java_events, calling_user, run_config)
+        return convert_result_to_python(java_dag_result)
 
     def _convert_event_list(self, events):
         """Convert Python list to Java List."""
@@ -527,3 +535,104 @@ def start_flow():
         >>> flow = zephflow.start_flow()
     """
     return ZephFlow.start_flow()
+
+
+def convert_result_to_python(dag_result):
+    """Convert DagResult to Python, handling both Java objects and dicts"""
+
+    def convert_record_fleak_data(record):
+        """Convert a RecordFleakData Java object to Python dict"""
+        if record is None:
+            return None
+        # If it's already a dict, return it
+        if isinstance(record, dict):
+            return record
+        # Otherwise it's a Java object, call unwrap()
+        return dict(record.unwrap())
+
+    def convert_error_output(error):
+        """Convert an ErrorOutput Java object to Python dict"""
+        if error is None:
+            return None
+        # If it's already a dict, return it
+        if isinstance(error, dict):
+            return error
+        # Otherwise it's a Java object
+        return {
+            "input_event": dict(error.inputEvent().unwrap()),
+            "error_message": str(error.errorMessage()),
+        }
+
+    # Check if dag_result is already a dict
+    if isinstance(dag_result, dict):
+        # It's already a Python dict, but may contain Java objects inside
+        result = {"output_events": {}, "output_by_step": {}, "error_by_step": {}}
+
+        # Process output_events
+        for key, events_list in dag_result.get("outputEvents", {}).items():
+            result["output_events"][key] = [
+                convert_record_fleak_data(event) for event in events_list
+            ]
+
+        # Process output_by_step
+        for step_key, step_map in dag_result.get("outputByStep", {}).items():
+            result["output_by_step"][step_key] = {}
+            for source_key, events_list in step_map.items():
+                result["output_by_step"][step_key][source_key] = [
+                    convert_record_fleak_data(event) for event in events_list
+                ]
+
+        # Process error_by_step
+        for step_key, step_map in dag_result.get("errorByStep", {}).items():
+            result["error_by_step"][step_key] = {}
+            for source_key, errors_list in step_map.items():
+                result["error_by_step"][step_key][source_key] = [
+                    convert_error_output(error) for error in errors_list
+                ]
+
+        return result
+
+    # Otherwise, it's a Java object
+    else:
+        result = {"output_events": {}, "output_by_step": {}, "error_by_step": {}}
+
+        # Handle outputEvents: Map<String, List<RecordFleakData>>
+        output_events = dag_result.getOutputEvents()
+        for key in output_events.keySet():
+            events_list = output_events.get(key)
+            result["output_events"][str(key)] = []
+            for i in range(events_list.size()):
+                event = events_list.get(i)
+                result["output_events"][str(key)].append(convert_record_fleak_data(event))
+
+        # Handle outputByStep: Map<String, Map<String, List<RecordFleakData>>>
+        output_by_step = dag_result.getOutputByStep()
+        for step_key in output_by_step.keySet():
+            step_map = output_by_step.get(step_key)
+            result["output_by_step"][str(step_key)] = {}
+
+            for source_key in step_map.keySet():
+                events_list = step_map.get(source_key)
+                result["output_by_step"][str(step_key)][str(source_key)] = []
+                for i in range(events_list.size()):
+                    event = events_list.get(i)
+                    result["output_by_step"][str(step_key)][str(source_key)].append(
+                        convert_record_fleak_data(event)
+                    )
+
+        # Handle errorByStep: Map<String, Map<String, List<ErrorOutput>>>
+        error_by_step = dag_result.getErrorByStep()
+        for step_key in error_by_step.keySet():
+            step_map = error_by_step.get(step_key)
+            result["error_by_step"][str(step_key)] = {}
+
+            for source_key in step_map.keySet():
+                errors_list = step_map.get(source_key)
+                result["error_by_step"][str(step_key)][str(source_key)] = []
+                for i in range(errors_list.size()):
+                    error = errors_list.get(i)
+                    result["error_by_step"][str(step_key)][str(source_key)].append(
+                        convert_error_output(error)
+                    )
+
+        return result
