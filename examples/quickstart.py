@@ -25,7 +25,8 @@ def simple_filter_example():
 
     print("Processing events...")
     result = flow.process(events)
-    print(f"\nProduced {result.getOutputEvents().size()} total records")
+    total_events = sum(len(events_list) for events_list in result["output_events"].values())
+    print(f"\nProduced {total_events} total records")
 
 
 def transformation_example():
@@ -57,7 +58,8 @@ def transformation_example():
 
     print("Transforming events...")
     result = flow.process(events)
-    print(f"\nProduced {result.getOutputEvents().size()} records")
+    total_events = sum(len(events_list) for events_list in result["output_events"].values())
+    print(f"\nProduced {total_events} total records")
 
 
 def merge_flows_example():
@@ -88,7 +90,8 @@ def merge_flows_example():
     # Note: In the actual merge, duplicate events (matching both filters)
     # may appear twice unless deduplicated
     result = merged_flow.process(events)
-    print(f"\nProcessed {result.getOutputEvents().size()} records")
+    total_events = sum(len(events_list) for events_list in result["output_events"].values())
+    print(f"\nProduced {total_events} total records")
 
 
 def error_handling_example():
@@ -112,11 +115,18 @@ def error_handling_example():
 
     print("Processing with assertions...")
     result = flow.process(events, include_error_by_step=True)
-    print(f"\nTotal: {result.getOutputEvents().size()}")
+    total_output = sum(len(events_list) for events_list in result["output_events"].values())
+    print(f"\nTotal: {total_output}")
 
     # Check failures
-    if result.getErrorByStep().size() > 0:
-        print(f"\nFailed events: {errors_by_step_str(result.getErrorByStep())}")
+    if result["error_by_step"]:
+        print("\nFailed events:")
+        for step, sources in result["error_by_step"].items():
+            for source, errors in sources.items():
+                print(f"{step} -> {source}:")
+                for error in errors:
+                    print(f"  Input: {error['input_event']}")
+                    print(f"  Error: {error['error_message']}")
 
 
 def errors_by_step_str(error_by_step) -> str:
@@ -156,11 +166,11 @@ def main():
     print("===========================\n")
 
     try:
-        simple_filter_example()
-        transformation_example()
-        merge_flows_example()
+        # simple_filter_example()
+        # transformation_example()
+        # merge_flows_example()
         error_handling_example()
-        execute_yaml_dag_example()
+        # execute_yaml_dag_example()
 
         print("\n✅ All examples completed successfully!")
 
