@@ -25,5 +25,6 @@ class TestZephFlowIntegration:
             "output_events": {"a": expected_outputs},
             "output_by_step": {"a": {"sync_input": expected_outputs}},
             "error_by_step": {},
+            "sink_result_map": {},
         }
         assert result == expected_result
