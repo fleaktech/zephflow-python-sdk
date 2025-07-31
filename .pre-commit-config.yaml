@@ -24,3 +24,6 @@ repos:
       - id: mypy
         args: [ --config-file=pyproject.toml, zephflow/ ]
         pass_filenames: false
+        additional_dependencies:
+          - "requests>=2.32.0,<3.0.0"
+          - "types-requests<2.32"

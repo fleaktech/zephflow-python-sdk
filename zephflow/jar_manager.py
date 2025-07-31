@@ -4,10 +4,10 @@ import platform
 import re
 import subprocess
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import Optional
+
+import requests
 
 from .versions import JAVA_SDK_VERSION
 
@@ -122,57 +122,97 @@ class JarManager:
             json.dump({"version": version}, f)
 
     def _download_jar(self, version: str, jar_path: Path):
-        """Download the JAR from GitHub releases."""
-        # Construct the download URL
-        # Handle both release and dev versions
-        if "-dev." in version:
-            # Dev versions might be in pre-releases
-            tag = f"v{version}"
-        else:
-            tag = f"v{version}"
+        """
+        Download the JAR from GitHub, with retries and resume support.
+        """
+        retries = 3
+        timeout_seconds = 30
+        chunk_size = 8192
 
+        tag = f"v{version}"
         jar_filename = f"sdk-{version}-all.jar"
         download_url = (
-            f"https://github.com/{self.GITHUB_REPO}/releases/download/" f"{tag}/{jar_filename}"
+            f"https://github.com/{self.GITHUB_REPO}/releases/download/{tag}/{jar_filename}"
         )
 
-        try:
-            # Download with progress indicator
-            def download_progress(block_num, block_size, total_size):
-                downloaded = block_num * block_size
-                percent = min(downloaded * 100 / total_size, 100)
-                progress = int(50 * percent / 100)
-                sys.stdout.write(f'\r[{"#" * progress}{"." * (50 - progress)}] {percent:.1f}%')
-                sys.stdout.flush()
-
-            urllib.request.urlretrieve(download_url, jar_path, download_progress)
-            print()  # New line after progress bar
-
-            # Verify the download
-            if not jar_path.exists() or jar_path.stat().st_size == 0:
-                raise RuntimeError("Downloaded JAR file is empty or missing")
-
-            print(f"Successfully downloaded to {jar_path}")
-
-        except urllib.error.HTTPError as e:
-            if e.code == 404:
-                raise RuntimeError(
-                    f"JAR file not found for version {version}. "
-                    f"Please check if the release exists at "
-                    f"https://github.com/{self.GITHUB_REPO}/releases"
-                )
-            else:
-                raise RuntimeError(f"Failed to download JAR: HTTP {e.code}")
-        except Exception as e:
-            # Clean up partial download
+        for attempt in range(retries):
+            # --- Resume Logic ---
+            # 1. Check if a partial file exists and get its size.
+            resume_byte_pos = 0
             if jar_path.exists():
-                jar_path.unlink()
-            raise RuntimeError(f"Failed to download JAR: {e}")
+                resume_byte_pos = jar_path.stat().st_size
 
-    def clear_cache(self):
-        """Clear the JAR cache directory."""
-        import shutil
+            # 2. Set the Range header to start the download from where it left off.
+            headers = {"Range": f"bytes={resume_byte_pos}-"} if resume_byte_pos > 0 else {}
 
-        if self.cache_dir.exists():
-            shutil.rmtree(self.cache_dir)
-            print(f"Cleared cache at {self.cache_dir}")
+            try:
+                print(f"Attempting to download ZephFlow SDK v{version}...")
+                if resume_byte_pos > 0:
+                    print(f"Resuming from byte {resume_byte_pos}.")
+
+                with requests.get(
+                    download_url, headers=headers, stream=True, timeout=timeout_seconds
+                ) as r:
+                    # Handle cases where the server doesn't support range requests
+                    # or the file changed.
+                    if r.status_code != 206 and resume_byte_pos > 0:
+                        print("Server did not support resume. Starting download from beginning.")
+                        resume_byte_pos = 0  # Reset for full download
+
+                    # Check for any HTTP error status.
+                    r.raise_for_status()
+
+                    # Determine file open mode and initial downloaded size.
+                    open_mode = "ab" if resume_byte_pos > 0 and r.status_code == 206 else "wb"
+                    downloaded_size = resume_byte_pos
+
+                    # Get total file size. For a resumed download, this is in 'Content-Range'.
+                    if r.status_code == 206:
+                        # e.g. Content-Range: bytes 12345-67890/67890
+                        total_size_str = r.headers.get("Content-Range", "0/0").split("/")[-1]
+                        total_size = int(total_size_str)
+                    else:
+                        total_size = int(r.headers.get("Content-Length", 0))
+
+                    if total_size == 0:
+                        raise RuntimeError("Could not determine total file size.")
+
+                    with open(jar_path, open_mode) as f:
+                        for chunk in r.iter_content(chunk_size=chunk_size):
+                            f.write(chunk)
+                            downloaded_size += len(chunk)
+
+                            percent = min(downloaded_size * 100 / total_size, 100)
+                            progress = int(50 * percent / 100)
+                            sys.stdout.write(
+                                f'\r[{"#" * progress}{"." * (50 - progress)}] {percent:.1f}%'
+                            )
+                            sys.stdout.flush()
+
+                print()  # New line after progress bar
+
+                # Final check
+                if jar_path.stat().st_size != total_size:
+                    raise RuntimeError(
+                        f"Download incomplete. Expected {total_size} bytes, "
+                        f"got {jar_path.stat().st_size}."
+                    )
+
+                print(f"Successfully downloaded to {jar_path}")
+                return  # Exit the function on success
+
+            except requests.exceptions.RequestException as e:
+                # If the range is not satisfiable (e.g., local file is corrupt/larger),
+                # delete and restart.
+                if isinstance(e, requests.exceptions.HTTPError) and e.response.status_code == 416:
+                    print("\nLocal file is invalid. Deleting and restarting download.")
+                    jar_path.unlink()  # Delete corrupt partial file
+                else:
+                    print(f"\nDownload failed: {e}. Retrying... ({attempt + 1}/{retries})")
+
+            if attempt < retries - 1:
+                import time
+
+                time.sleep(2)
+
+        raise RuntimeError(f"Failed to download JAR from {download_url} after {retries} attempts.")
