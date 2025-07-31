@@ -28,6 +28,7 @@ packages = [{ include = "zephflow" }]
 [tool.poetry.dependencies]
 python = "^3.8.1"
 py4j = "^0.10.9.7"
+requests = "^2.32.0"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -38,6 +39,7 @@ isort = "^5.0"
 flake8 = "^6.0"
 mypy = "^1.0"
 pre-commit = "^3.0"
+types-requests = "<2.32"
 
 
 [build-system]
