@@ -488,7 +488,7 @@ class ZephFlow:
             "output_events": raw_result.get("outputEvents", {}),
             "output_by_step": raw_result.get("outputByStep", {}),
             "error_by_step": raw_result.get("errorByStep", {}),
-            "sink_result_map": raw_result.get("sinkResultMap", {})
+            "sink_result_map": raw_result.get("sinkResultMap", {}),
         }
         return result
 
