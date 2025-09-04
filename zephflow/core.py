@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 from py4j.java_gateway import GatewayParameters, JavaGateway, launch_gateway
 
 from .jar_manager import JarManager
-from .utils import convert_result_to_python, is_json, read_file
+from .utils import is_json, read_file
 
 
 class ZephFlow:
@@ -480,49 +480,25 @@ class ZephFlow:
 
         run_config = NoSourceDagRunner.DagRunConfig(include_error_by_step, include_output_by_step)
 
-        # Call Java process method
-        java_dag_result = self._java_flow.process(java_events, calling_user, run_config)
-        return convert_result_to_python(java_dag_result)
+        # Call Java processAsJson method
+        json_result = self._java_flow.processAsJson(java_events, calling_user, run_config)
+
+        raw_result = json.loads(json_result)
+        result = {
+            "output_events": raw_result.get("outputEvents", {}),
+            "output_by_step": raw_result.get("outputByStep", {}),
+            "error_by_step": raw_result.get("errorByStep", {}),
+            "sink_result_map": raw_result.get("sinkResultMap", {}),
+        }
+        return result
 
     def _convert_event_list(self, events):
         """Convert Python list to Java List."""
-        java_list = ZephFlow._gateway.jvm.java.util.ArrayList()
+        json_events = json.dumps(events)
 
-        for event in events:
-            java_event = self._dict_to_fleak_data(event)
-            java_list.add(java_event)
-
-        return java_list
-
-    def _dict_to_fleak_data(self, data):
-        """Convert Python dict to Java FleakData."""
-        # Convert Python dict to Java Map
-        java_map = ZephFlow._gateway.jvm.java.util.HashMap()
-
-        for key, value in data.items():
-            java_value = self._python_to_java(value)
-            java_map.put(key, java_value)
-
-        # Use FleakData.wrap
-        return ZephFlow._jvm.io.fleak.zephflow.api.structure.FleakData.wrap(java_map)
-
-    def _python_to_java(self, value):
-        """Convert Python values to Java equivalents."""
-        if isinstance(value, dict):
-            java_map = ZephFlow._gateway.jvm.java.util.HashMap()
-            for k, v in value.items():
-                java_map.put(k, self._python_to_java(v))
-            return java_map
-        elif isinstance(value, list):
-            java_list = ZephFlow._gateway.jvm.java.util.ArrayList()
-            for item in value:
-                java_list.add(self._python_to_java(item))
-            return java_list
-        elif value is None:
-            return None
-        else:
-            # Primitives
-            return value
+        # Single Java call for batch conversion
+        java_zephflow_class = ZephFlow._jvm.io.fleak.zephflow.sdk.ZephFlow
+        return java_zephflow_class.convertJsonEventsToFleakData(json_events)
 
 
 # Convenience function at module level
