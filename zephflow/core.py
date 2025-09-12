@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 from py4j.java_gateway import GatewayParameters, JavaGateway, launch_gateway
 
 from .jar_manager import JarManager
+from .job_context import JobContext
 from .utils import is_json, read_file
 
 
@@ -64,9 +65,13 @@ class ZephFlow:
         return ZephFlow(java_zephflow_class.fromYamlDag(yaml_dag, metrics_provider))
 
     @staticmethod
-    def start_flow():
+    def start_flow(job_context: Optional[JobContext] = None):
         """
-        Start a new ZephFlow instance with default settings.
+        Start a new ZephFlow instance with optional JobContext.
+
+        Args:
+            job_context: Optional JobContext instance. If None, calls Java startFlow()
+                        which creates a default JobContext with required metric tags.
 
         Returns:
             ZephFlow: A new ZephFlow instance
@@ -75,12 +80,30 @@ class ZephFlow:
             >>> import zephflow
             >>> flow = zephflow.ZephFlow.start_flow()
             >>> flow = flow.filter("$.value > 10").stdout_sink("JSON_OBJECT")
+
+            >>> # With job context
+            >>> from zephflow.job_context import JobContext, S3DlqConfig
+            >>> dlq_config = S3DlqConfig("us-east-1", "my-bucket", 100, 5000)
+            >>> job_context = JobContext.builder().dlq_config(dlq_config).build()
+            >>> flow = zephflow.ZephFlow.start_flow(job_context)
         """
         ZephFlow._ensure_gateway()
 
+        assert ZephFlow._jvm is not None  # Tell mypy that _jvm is not None
         # Get Java ZephFlow class
         java_zephflow_class = ZephFlow._jvm.io.fleak.zephflow.sdk.ZephFlow
-        java_flow = java_zephflow_class.startFlow()
+
+        if job_context is not None:
+            # Convert JobContext to Java object
+            if isinstance(job_context, JobContext):
+                java_job_context = job_context.to_java_object(ZephFlow._gateway)
+                java_flow = java_zephflow_class.startFlow(java_job_context)
+            else:
+                # Assume it's already a Java JobContext object
+                java_flow = java_zephflow_class.startFlow(job_context)
+        else:
+            # Call the no-argument version that creates default JobContext on Java side
+            java_flow = java_zephflow_class.startFlow()
 
         return ZephFlow(java_flow)
 
@@ -144,6 +167,7 @@ class ZephFlow:
             ZephFlow: A new ZephFlow instance representing the merged flow
 
         Example:
+            >>> import zephflow
             >>> flow1 = zephflow.ZephFlow.start_flow().filter("$.type == 'A'")
             >>> flow2 = zephflow.ZephFlow.start_flow().filter("$.type == 'B'")
             >>> merged = zephflow.ZephFlow.merge(flow1, flow2)
@@ -476,9 +500,11 @@ class ZephFlow:
         java_events = self._convert_event_list(events)
 
         # Create the DagRunConfig
-        NoSourceDagRunner = ZephFlow._jvm.io.fleak.zephflow.runner.NoSourceDagRunner
+        no_source_dag_runner = ZephFlow._jvm.io.fleak.zephflow.runner.NoSourceDagRunner
 
-        run_config = NoSourceDagRunner.DagRunConfig(include_error_by_step, include_output_by_step)
+        run_config = no_source_dag_runner.DagRunConfig(
+            include_error_by_step, include_output_by_step
+        )
 
         # Call Java processAsJson method
         json_result = self._java_flow.processAsJson(java_events, calling_user, run_config)

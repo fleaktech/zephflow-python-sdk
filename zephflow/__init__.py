@@ -11,15 +11,26 @@ Example:
     >>> flow.execute("job-1", "dev", "my-service")
 """
 
-from . import core, jar_manager
+from . import core, jar_manager, job_context
 from .core import ZephFlow, start_flow
 from .jar_manager import JarManager
+from .job_context import DlqConfig, JobContext, JobContextBuilder, S3DlqConfig
 from .versions import JAVA_SDK_VERSION, PYTHON_SDK_VERSION
 
 # Use versions.py as the source of truth
 __version__ = PYTHON_SDK_VERSION
 
-__all__ = ["ZephFlow", "start_flow", "JarManager", "__version__", "JAVA_SDK_VERSION"]
+__all__ = [
+    "ZephFlow",
+    "start_flow",
+    "JarManager",
+    "JobContext",
+    "JobContextBuilder",
+    "DlqConfig",
+    "S3DlqConfig",
+    "__version__",
+    "JAVA_SDK_VERSION",
+]
 
 # Clean up namespace
-del core, jar_manager
+del core, jar_manager, job_context
