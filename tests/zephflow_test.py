@@ -38,10 +38,10 @@ class TestZephFlowIntegration:
 
         # Use the same test events
         test_events = [
-            {"id": 1, "value": 5},   # Will be filtered out
+            {"id": 1, "value": 5},  # Will be filtered out
             {"id": 2, "value": 15},  # Will pass through
             {"id": 3, "value": 25},  # Will pass through
-            {"id": 4, "value": 8},   # Will be filtered out
+            {"id": 4, "value": 8},  # Will be filtered out
             {"id": 5, "value": 30},  # Will pass through
         ]
 
@@ -73,18 +73,17 @@ class TestZephFlowIntegration:
         """Test creating flow with custom JobContext including DLQ configuration"""
         # Configure DLQ
         dlq_config = S3DlqConfig(
-            region="us-east-1",
-            bucket="test-dlq-bucket",
-            batch_size=100,
-            flush_interval_millis=5000
+            region="us-east-1", bucket="test-dlq-bucket", batch_size=100, flush_interval_millis=5000
         )
 
         # Create JobContext with custom configuration
-        job_context = JobContext.builder() \
-            .metric_tags({"env": "test", "service": "test-service"}) \
-            .other_properties({"version": "1.0.0", "team": "data-platform"}) \
-            .dlq_config(dlq_config) \
+        job_context = (
+            JobContext.builder()
+            .metric_tags({"env": "test", "service": "test-service"})
+            .other_properties({"version": "1.0.0", "team": "data-platform"})
+            .dlq_config(dlq_config)
             .build()
+        )
 
         # Create flow with JobContext
         flow = ZephFlow.start_flow(job_context)
@@ -94,10 +93,10 @@ class TestZephFlowIntegration:
 
         # Use the same test events
         test_events = [
-            {"id": 1, "value": 5},   # Will be filtered out
+            {"id": 1, "value": 5},  # Will be filtered out
             {"id": 2, "value": 15},  # Will pass through
             {"id": 3, "value": 25},  # Will pass through
-            {"id": 4, "value": 8},   # Will be filtered out
+            {"id": 4, "value": 8},  # Will be filtered out
             {"id": 5, "value": 30},  # Will pass through
         ]
 
