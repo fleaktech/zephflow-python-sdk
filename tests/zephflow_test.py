@@ -1,5 +1,6 @@
 from pathlib import Path
-from zephflow import ZephFlow, S3DlqConfig, JobContext
+
+from zephflow import JobContext, S3DlqConfig, ZephFlow
 
 
 class TestZephFlowIntegration:
