@@ -17,6 +17,8 @@ class S3DlqConfig(DlqConfig):
         bucket: str,
         batch_size: int,
         flush_interval_millis: int,
+        access_key_id: str,
+        secret_access_key: str,
     ):
         """
         Initialize S3 DLQ configuration.
@@ -31,6 +33,8 @@ class S3DlqConfig(DlqConfig):
         self.bucket = bucket
         self.batch_size = batch_size
         self.flush_interval_millis = flush_interval_millis
+        self.access_key_id = access_key_id
+        self.secret_access_key = secret_access_key
 
 
 class JobContext:
@@ -84,7 +88,14 @@ class JobContext:
         # Set other properties
         java_other_properties = gateway.jvm.java.util.HashMap()
         for key, value in self.other_properties.items():
-            java_other_properties.put(key, value)
+            if isinstance(value, UsernamePasswordCredential):
+                # Convert Python credential to Java credential
+                java_credential = gateway.jvm.io.fleak.zephflow.lib.credentials.UsernamePasswordCredential(
+                    value.username, value.password
+                )
+                java_other_properties.put(key, java_credential)
+            else:
+                java_other_properties.put(key, value)
         java_job_context.setOtherProperties(java_other_properties)
 
         # Set metric tags
@@ -101,6 +112,8 @@ class JobContext:
                 java_s3_config.setBucket(self.dlq_config.bucket)
                 java_s3_config.setBatchSize(self.dlq_config.batch_size)
                 java_s3_config.setFlushIntervalMillis(self.dlq_config.flush_interval_millis)
+                java_s3_config.setAccessKeyId(self.dlq_config.access_key_id)
+                java_s3_config.setSecretAccessKey(self.dlq_config.secret_access_key)
                 java_job_context.setDlqConfig(java_s3_config)
 
         return java_job_context
@@ -165,3 +178,18 @@ class JobContextBuilder:
             metric_tags=self._metric_tags.copy(),
             dlq_config=self._dlq_config,
         )
+
+
+class UsernamePasswordCredential:
+    """Username/Password credential for authentication."""
+
+    def __init__(self, username: str, password: str):
+        self.username = username
+        self.password = password
+
+    def to_dict(self):
+        """Convert to dictionary for JobContext storage."""
+        return {
+            "username": self.username,
+            "password": self.password
+        }
