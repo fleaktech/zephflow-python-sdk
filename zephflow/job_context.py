@@ -2,6 +2,21 @@ from abc import ABC
 from typing import Any, Dict, Optional
 
 
+class UsernamePasswordCredential:
+    """Username/Password credential for authentication."""
+
+    def __init__(self, username: str, password: str):
+        self.username = username
+        self.password = password
+
+    def to_dict(self):
+        """Convert to dictionary for JobContext storage."""
+        return {
+            "username": self.username,
+            "password": self.password
+        }
+
+
 class DlqConfig(ABC):
     """Abstract base class for Dead Letter Queue configuration."""
 
@@ -28,6 +43,8 @@ class S3DlqConfig(DlqConfig):
             bucket: S3 bucket name
             batch_size: Batch size for DLQ operations
             flush_interval_millis: Flush interval in milliseconds
+            access_key_id: AWS access key ID
+            secret_access_key: AWS secret access key
         """
         self.region = region
         self.bucket = bucket
@@ -92,8 +109,7 @@ class JobContext:
                 # Convert Python credential to Java credential
                 java_credential = (
                     gateway.jvm.io.fleak.zephflow.lib.credentials.UsernamePasswordCredential(
-                        value.username,
-                        value.password
+                        value.username, value.password
                     )
                 )
                 java_other_properties.put(key, java_credential)
@@ -181,18 +197,3 @@ class JobContextBuilder:
             metric_tags=self._metric_tags.copy(),
             dlq_config=self._dlq_config,
         )
-
-
-class UsernamePasswordCredential:
-    """Username/Password credential for authentication."""
-
-    def __init__(self, username: str, password: str):
-        self.username = username
-        self.password = password
-
-    def to_dict(self):
-        """Convert to dictionary for JobContext storage."""
-        return {
-            "username": self.username,
-            "password": self.password
-        }
