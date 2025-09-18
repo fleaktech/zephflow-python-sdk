@@ -305,7 +305,6 @@ class ZephFlow:
         bucket: str,
         folder: str,
         encoding_type: str,
-        credential_id: Optional[str] = None,
         s3_endpoint_override: Optional[str] = None,
     ):
         """
@@ -316,7 +315,6 @@ class ZephFlow:
             bucket: S3 bucket name
             folder: Folder path within the bucket
             encoding_type: Encoding type for the output (e.g., "JSON_OBJECT")
-            credential_id: Optional credential ID for AWS authentication
             s3_endpoint_override: Optional endpoint override for S3 compatibility
 
         Returns:
@@ -328,9 +326,12 @@ class ZephFlow:
             encoding_type
         )
 
-        new_java_flow = self._java_flow.s3Sink(
-            region, bucket, folder, java_encoding_type, credential_id, s3_endpoint_override
-        )
+        if s3_endpoint_override:
+            new_java_flow = self._java_flow.s3Sink(
+                region, bucket, folder, java_encoding_type, s3_endpoint_override
+            )
+        else:
+            new_java_flow = self._java_flow.s3Sink(region, bucket, folder, java_encoding_type)
 
         return ZephFlow(new_java_flow)
 
