@@ -90,8 +90,11 @@ class JobContext:
         for key, value in self.other_properties.items():
             if isinstance(value, UsernamePasswordCredential):
                 # Convert Python credential to Java credential
-                java_credential = gateway.jvm.io.fleak.zephflow.lib.credentials.UsernamePasswordCredential(
-                    value.username, value.password
+                java_credential = (
+                    gateway.jvm.io.fleak.zephflow.lib.credentials.UsernamePasswordCredential(
+                        value.username,
+                        value.password
+                    )
                 )
                 java_other_properties.put(key, java_credential)
             else:
