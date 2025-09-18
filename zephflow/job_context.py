@@ -11,10 +11,7 @@ class UsernamePasswordCredential:
 
     def to_dict(self):
         """Convert to dictionary for JobContext storage."""
-        return {
-            "username": self.username,
-            "password": self.password
-        }
+        return {"username": self.username, "password": self.password}
 
 
 class DlqConfig(ABC):
