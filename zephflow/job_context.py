@@ -2,7 +2,6 @@ from abc import ABC
 from typing import Any, Dict, Optional
 
 
-
 class DlqConfig(ABC):
     """Abstract base class for Dead Letter Queue configuration."""
 

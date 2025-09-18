@@ -48,7 +48,6 @@ class TestS3DlqConfig:
         assert config.secret_access_key is None
 
 
-
 class TestS3DlqJavaConversion:
     """Test S3DlqConfig to Java object conversion."""
 
@@ -154,8 +153,6 @@ class TestS3DlqJavaConversion:
         # Verify credentials handling - only access key should be set
         mock_java_s3_config.setAccessKeyId.assert_called_once_with("AKIAIOSFODNN7EXAMPLE")
         mock_java_s3_config.setSecretAccessKey.assert_not_called()
-
-
 
 
 class TestDlqIntegrationWithZephFlow:
