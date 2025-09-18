@@ -27,10 +27,10 @@ class S3DlqConfig(DlqConfig):
         self,
         region: str,
         bucket: str,
-        batch_size: int,
-        flush_interval_millis: int,
-        access_key_id: str,
-        secret_access_key: str,
+        batch_size: int = 100,
+        flush_interval_millis: int = 5000,
+        access_key_id: Optional[str] = None,
+        secret_access_key: Optional[str] = None,
     ):
         """
         Initialize S3 DLQ configuration.
@@ -128,8 +128,10 @@ class JobContext:
                 java_s3_config.setBucket(self.dlq_config.bucket)
                 java_s3_config.setBatchSize(self.dlq_config.batch_size)
                 java_s3_config.setFlushIntervalMillis(self.dlq_config.flush_interval_millis)
-                java_s3_config.setAccessKeyId(self.dlq_config.access_key_id)
-                java_s3_config.setSecretAccessKey(self.dlq_config.secret_access_key)
+                if self.dlq_config.access_key_id is not None:
+                    java_s3_config.setAccessKeyId(self.dlq_config.access_key_id)
+                if self.dlq_config.secret_access_key is not None:
+                    java_s3_config.setSecretAccessKey(self.dlq_config.secret_access_key)
                 java_job_context.setDlqConfig(java_s3_config)
 
         return java_job_context
