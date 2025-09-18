@@ -151,6 +151,157 @@ if result.getErrorByStep().size() > 0:
   print("Some events failed validation")
 ```
 
+## S3 Dead Letter Queue (DLQ)
+
+ZephFlow supports automatic error handling by storing failed events to Amazon S3 using a Dead Letter Queue mechanism. This is useful for debugging and recovering from processing failures.
+
+### Basic S3 DLQ Configuration
+
+Configure S3 DLQ to automatically capture events that fail processing:
+
+```python
+import zephflow
+from zephflow import JobContext, S3DlqConfig
+from zephflow.job_context import UsernamePasswordCredential
+
+# Configure S3 DLQ
+dlq_config = S3DlqConfig(
+    region="us-west-2",
+    bucket="error-events-bucket",
+    batch_size=100,                    # Events to batch before writing
+    flush_interval_millis=30000,       # Max wait time (30 seconds)
+    access_key_id="your-access-key",
+    secret_access_key="your-secret-key"
+)
+
+# Create JobContext with DLQ configuration
+job_context = (
+    JobContext.builder()
+    .metric_tags({"env": "production", "service": "data-processor"})
+    .dlq_config(dlq_config)
+    .build()
+)
+
+# Create a flow with error handling
+flow = (
+    zephflow.ZephFlow.start_flow(job_context)
+    .filter("$.value > 0")              # Filter positive values
+    .assertion("$.required_field != null")  # Validate required fields
+    .assertion("$.value < 1000")        # Validate value range
+    .eval("""
+        dict(
+            id=$.id,
+            validated_value=$.value,
+            processed_at=now()
+        )
+    """)
+    .stdout_sink("JSON_OBJECT")
+)
+
+# Process events - failed validations will go to DLQ
+events = [
+    {"id": 1, "value": 50, "required_field": "data"},    # Will succeed
+    {"id": 2, "value": 1500, "required_field": "data"},  # Will fail value < 1000 assertion -> DLQ
+    {"id": 3, "value": 30},                              # Will fail required_field assertion -> DLQ
+    {"id": 4, "value": -10, "required_field": "data"},   # Will be filtered out
+]
+
+result = flow.process(events)
+print(f"Successfully processed: {result.getOutputEvents().size()} events")
+print(f"Failed events sent to S3 DLQ: error-events-bucket")
+```
+
+### File-based Processing with S3 DLQ
+
+Process data from files and automatically handle errors:
+
+```python
+import tempfile
+import json
+import zephflow
+from zephflow import JobContext, S3DlqConfig
+
+# Create test data file
+test_data = [
+    {"user_id": 1, "value": 100, "category": "A"},
+    {"user_id": 2, "value": 200, "category": "B"},
+    {"user_id": 3, "value": 50, "category": "A"},
+    {"user_id": 4, "value": None, "category": "C"},      # Will fail validation
+]
+
+# Write test data to temporary file
+with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+    for item in test_data:
+        f.write(json.dumps(item) + '\n')
+    input_file = f.name
+
+# Configure DLQ for error handling
+dlq_config = S3DlqConfig(
+    region="us-east-1",
+    bucket="processing-errors",
+    batch_size=10,
+    flush_interval_millis=5000
+)
+
+job_context = (
+    JobContext.builder()
+    .dlq_config(dlq_config)
+    .metric_tags({"env": "production", "service": "data-processor"})
+    .build()
+)
+
+# Process file data with automatic error handling
+flow = (
+    zephflow.ZephFlow.start_flow(job_context)
+    .file_source(input_file, "JSON_OBJECT")
+    .filter("$.value >= 75")  # Only process high-value transactions
+    .assertion("$.category != null")  # Validate category exists
+    .assertion("$.value != null")     # Validate value is not null
+    .eval("""
+        dict(
+            user_id=$.user_id,
+            processed_value=$.value * 1.1,
+            category=$.category,
+            processed_at=now()
+        )
+    """)
+    .stdout_sink("JSON_OBJECT")
+)
+
+flow.execute("batch-processor", "production", "transaction-service")
+
+# Cleanup
+import os
+os.unlink(input_file)
+```
+
+### S3 DLQ Configuration Options
+
+The `S3DlqConfig` supports the following parameters:
+
+- `region`: AWS region where the DLQ bucket is located
+- `bucket`: S3 bucket name for storing failed events
+- `batch_size`: Number of events to batch before writing (default: 100)
+- `flush_interval_millis`: Maximum time to wait before flushing events (default: 5000ms)
+- `access_key_id`: AWS access key (optional, uses default credential chain if not provided)
+- `secret_access_key`: AWS secret key (optional, uses default credential chain if not provided)
+
+### DLQ Error Event Format
+
+Failed events are stored in S3 with additional metadata:
+
+```json
+{
+  "originalEvent": {"user_id": 4, "value": null, "category": "C"},
+  "failureReason": "Assertion failed: $.value != null",
+  "stepName": "assertion",
+  "timestamp": "2025-09-18T10:30:00Z",
+  "jobId": "batch-processor",
+  "environment": "production",
+  "service": "transaction-service"
+}
+```
+
 ## Examples
 
 For more detailed examples, check out [Quick Start Example](https://github.com/fleaktech/zephflow-python-sdk/blob/main/examples/quickstart.py) - Basic filtering and transformation
