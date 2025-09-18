@@ -2,17 +2,6 @@ from abc import ABC
 from typing import Any, Dict, Optional
 
 
-class UsernamePasswordCredential:
-    """Username/Password credential for authentication."""
-
-    def __init__(self, username: str, password: str):
-        self.username = username
-        self.password = password
-
-    def to_dict(self):
-        """Convert to dictionary for JobContext storage."""
-        return {"username": self.username, "password": self.password}
-
 
 class DlqConfig(ABC):
     """Abstract base class for Dead Letter Queue configuration."""
@@ -102,16 +91,7 @@ class JobContext:
         # Set other properties
         java_other_properties = gateway.jvm.java.util.HashMap()
         for key, value in self.other_properties.items():
-            if isinstance(value, UsernamePasswordCredential):
-                # Convert Python credential to Java credential
-                java_credential = (
-                    gateway.jvm.io.fleak.zephflow.lib.credentials.UsernamePasswordCredential(
-                        value.username, value.password
-                    )
-                )
-                java_other_properties.put(key, java_credential)
-            else:
-                java_other_properties.put(key, value)
+            java_other_properties.put(key, value)
         java_job_context.setOtherProperties(java_other_properties)
 
         # Set metric tags

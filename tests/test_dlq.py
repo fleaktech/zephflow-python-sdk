@@ -3,7 +3,7 @@
 from unittest.mock import Mock
 
 import zephflow
-from zephflow.job_context import JobContext, S3DlqConfig, UsernamePasswordCredential
+from zephflow.job_context import JobContext, S3DlqConfig
 
 
 class TestS3DlqConfig:
@@ -47,24 +47,6 @@ class TestS3DlqConfig:
         assert config.access_key_id == "AKIAIOSFODNN7EXAMPLE"
         assert config.secret_access_key is None
 
-
-class TestUsernamePasswordCredential:
-    """Test UsernamePasswordCredential functionality."""
-
-    def test_credential_creation(self):
-        """Test creating UsernamePasswordCredential."""
-        credential = UsernamePasswordCredential("user123", "pass456")
-
-        assert credential.username == "user123"
-        assert credential.password == "pass456"
-
-    def test_credential_to_dict(self):
-        """Test converting credential to dictionary."""
-        credential = UsernamePasswordCredential("test_user", "test_pass")
-        result = credential.to_dict()
-
-        expected = {"username": "test_user", "password": "test_pass"}
-        assert result == expected
 
 
 class TestS3DlqJavaConversion:
@@ -174,73 +156,6 @@ class TestS3DlqJavaConversion:
         mock_java_s3_config.setSecretAccessKey.assert_not_called()
 
 
-class TestJobContextWithCredentials:
-    """Test JobContext integration with UsernamePasswordCredential for S3 DLQ."""
-
-    def test_job_context_with_credential_in_other_properties(self):
-        """Test JobContext with UsernamePasswordCredential in other_properties."""
-        # Create mocks
-        mock_gateway = Mock()
-        mock_jvm = mock_gateway.jvm
-        mock_java_job_context = Mock()
-        mock_java_hashmap = Mock()
-        mock_java_s3_config = Mock()
-        mock_java_username_password_credential = Mock()
-
-        # Set up JVM mocks
-        mock_jvm.io.fleak.zephflow.api.JobContext.return_value = mock_java_job_context
-        mock_jvm.java.util.HashMap.return_value = mock_java_hashmap
-        mock_jvm.io.fleak.zephflow.api.JobContext.S3DlqConfig.return_value = mock_java_s3_config
-        mock_jvm.io.fleak.zephflow.lib.credentials.UsernamePasswordCredential.return_value = (
-            mock_java_username_password_credential
-        )
-
-        # Create credential and JobContext
-        credential = UsernamePasswordCredential("aws_user", "aws_pass")
-        dlq_config = S3DlqConfig("us-east-1", "dlq-bucket")
-
-        ctx = JobContext(other_properties={"aws-credentials": credential}, dlq_config=dlq_config)
-
-        ctx.to_java_object(mock_gateway)
-
-        # Verify Java UsernamePasswordCredential was created
-        mock_jvm.io.fleak.zephflow.lib.credentials.UsernamePasswordCredential.assert_called_once_with(
-            "aws_user", "aws_pass"
-        )
-
-        # Verify the credential was put in the HashMap
-        mock_java_hashmap.put.assert_any_call(
-            "aws-credentials", mock_java_username_password_credential
-        )
-
-    def test_job_context_builder_with_dlq_and_credentials(self):
-        """Test JobContext builder pattern with DLQ config and credentials."""
-        # Create credential and DLQ config
-        credential = UsernamePasswordCredential("test_user", "test_pass")
-        dlq_config = S3DlqConfig(
-            region="ap-southeast-1",
-            bucket="production-dlq",
-            batch_size=200,
-            flush_interval_millis=10000,
-            access_key_id="AKIAIOSFODNN7EXAMPLE",
-            secret_access_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-        )
-
-        # Build JobContext
-        ctx = (
-            JobContext.builder()
-            .other_properties({"service": "payment-processor", "credentials": credential})
-            .metric_tags({"env": "production", "team": "payments"})
-            .dlq_config(dlq_config)
-            .build()
-        )
-
-        # Verify properties
-        assert ctx.other_properties["service"] == "payment-processor"
-        assert ctx.other_properties["credentials"] == credential
-        assert ctx.metric_tags["env"] == "production"
-        assert ctx.metric_tags["team"] == "payments"
-        assert ctx.dlq_config == dlq_config
 
 
 class TestDlqIntegrationWithZephFlow:
@@ -263,14 +178,10 @@ class TestDlqIntegrationWithZephFlow:
         mock_java_job_context = Mock()
         mock_java_hashmap = Mock()
         mock_java_s3_config = Mock()
-        mock_java_username_password_credential = Mock()
 
         mock_jvm.io.fleak.zephflow.api.JobContext.return_value = mock_java_job_context
         mock_jvm.java.util.HashMap.return_value = mock_java_hashmap
         mock_jvm.io.fleak.zephflow.api.JobContext.S3DlqConfig.return_value = mock_java_s3_config
-        mock_jvm.io.fleak.zephflow.lib.credentials.UsernamePasswordCredential.return_value = (
-            mock_java_username_password_credential
-        )
 
         # Set up the class-level gateway and jvm mocks
         original_gateway = zephflow.ZephFlow._gateway
@@ -279,8 +190,7 @@ class TestDlqIntegrationWithZephFlow:
         zephflow.ZephFlow._jvm = mock_jvm
 
         try:
-            # Create comprehensive JobContext with DLQ and credentials
-            credential = UsernamePasswordCredential("dlq_user", "dlq_pass")
+            # Create comprehensive JobContext with DLQ configuration
             dlq_config = S3DlqConfig(
                 region="us-east-1",
                 bucket="app-dlq-bucket",
@@ -292,7 +202,7 @@ class TestDlqIntegrationWithZephFlow:
 
             job_context = (
                 JobContext.builder()
-                .other_properties({"app": "data-processor", "dlq-credentials": credential})
+                .other_properties({"app": "data-processor"})
                 .metric_tags({"env": "staging", "service": "data-pipeline"})
                 .dlq_config(dlq_config)
                 .build()
@@ -323,11 +233,6 @@ class TestDlqIntegrationWithZephFlow:
 
             # Verify the DLQ config was set on the job context
             mock_java_job_context.setDlqConfig.assert_called_once_with(mock_java_s3_config)
-
-            # Verify UsernamePasswordCredential was created
-            mock_jvm.io.fleak.zephflow.lib.credentials.UsernamePasswordCredential.assert_called_once_with(
-                "dlq_user", "dlq_pass"
-            )
 
         finally:
             # Clean up the mocks
