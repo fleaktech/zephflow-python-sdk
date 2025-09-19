@@ -8,9 +8,6 @@ jobContext:
 dag:
   - id: "a"
     commandName: "eval"
-    config: |
-      dict(
-        v=$.value,
-        v2 = 2* $.value
-      )
+    config:
+      expression: "dict(v=$.value, v2=2*$.value)"
     outputs:

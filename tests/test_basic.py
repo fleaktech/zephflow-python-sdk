@@ -159,16 +159,16 @@ jobContext:
 dag:
   - id: "a"
     commandName: "filesource"
-    config: |
-        {"filePath": "/tmp/input.csv",
-        "encodingType": "CSV"}
+    config:
+      filePath: "/tmp/input.csv"
+      encodingType: "CSV"
     outputs:
       - "b"
 
   - id: "b"
     commandName: "stdout"
-    config: |
-        {"encodingType": "JSON_OBJECT"}    
+    config:
+      encodingType: "JSON_OBJECT"
     """
     )
 
@@ -186,13 +186,18 @@ def test_execute_dag_json():
     {
       "id": "a",
       "commandName": "filesource",
-      "config": "{\\"filePath\\": \\"/tmp/input.csv\\", \\"encodingType\\": \\"CSV\\"}",
+      "config": {
+        "filePath": "/tmp/input.csv",
+        "encodingType": "CSV"
+      },
       "outputs": ["b"]
     },
     {
       "id": "b",
       "commandName": "stdout",
-      "config": "{\\"encodingType\\": \\"JSON_OBJECT\\"}"
+      "config": {
+        "encodingType": "JSON_OBJECT"
+      }
     }
   ]
 }
