@@ -147,4 +147,47 @@ class TestZephFlowIntegration:
         assert java_dlq_config.getBatchSize() == 100
         assert java_dlq_config.getFlushIntervalMillis() == 5000
 
-        print("Successfully verified flow with custom JobContext and DLQ config")
+    def test_module_level_start_flow(self):
+        """Test the module-level start_flow() convenience function with full processing pipeline"""
+        import zephflow
+
+        # Create flow using module-level convenience function
+        flow = zephflow.start_flow()
+        assert flow is not None
+        assert isinstance(flow, zephflow.ZephFlow)
+
+        # Build the same processing pipeline as other tests
+        flow = flow.filter("$.value > 10").eval("dict(result=$.value * 2, original=$.value)")
+
+        # Use the same test events
+        test_events = [
+            {"id": 1, "value": 5},  # Will be filtered out
+            {"id": 2, "value": 15},  # Will pass through
+            {"id": 3, "value": 25},  # Will pass through
+            {"id": 4, "value": 8},  # Will be filtered out
+            {"id": 5, "value": 30},  # Will pass through
+        ]
+
+        # Process events - this tests the full pipeline
+        result = flow.process(test_events)
+
+        # Verify basic processing works
+        assert "output_events" in result
+        assert "error_by_step" in result
+        assert result["error_by_step"] == {}
+
+        # Build DAG to verify the module-level function creates proper JobContext
+        dag = flow.build_dag()
+        java_job_context = dag.getJobContext()
+        assert java_job_context is not None
+
+        # Verify default metric tags were set (same as class method)
+        metric_tags = java_job_context.getMetricTags()
+        assert metric_tags.get("service") == "default_service"
+        assert metric_tags.get("env") == "default_env"
+
+        # Verify no DLQ config by default
+        java_dlq_config = java_job_context.getDlqConfig()
+        assert java_dlq_config is None
+
+        print("Successfully verified module-level start_flow() with full processing pipeline")
