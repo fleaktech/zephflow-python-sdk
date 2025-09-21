@@ -151,6 +151,60 @@ if result.getErrorByStep().size() > 0:
   print("Some events failed validation")
 ```
 
+### S3 Sink
+
+Output processed data to Amazon S3:
+
+```python
+# Basic S3 sink (uses default AWS credential chain)
+flow = (
+    zephflow.ZephFlow.start_flow()
+    .filter("$.value > 10")
+    .eval("""
+        dict(
+            id=$.id,
+            processed_value=$.value * 2,
+            timestamp=now()
+        )
+    """)
+    .s3_sink(
+        region="us-west-2",
+        bucket="processed-data-bucket",
+        folder="events/year=2024/month=01/",
+        encoding_type="JSON_OBJECT"
+    )
+)
+
+# S3 sink with explicit credentials
+flow = (
+    zephflow.ZephFlow.start_flow()
+    .filter("$.status == 'active'")
+    .s3_sink(
+        region="us-east-1",
+        bucket="my-data-bucket",
+        folder="processed/daily/",
+        encoding_type="JSON_OBJECT",
+        access_key_id="AKIAIOSFODNN7EXAMPLE",
+        secret_access_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    )
+)
+
+# S3 sink with custom endpoint (for MinIO or S3-compatible storage)
+flow = (
+    zephflow.ZephFlow.start_flow()
+    .filter("$.priority == 'high'")
+    .s3_sink(
+        region="us-west-2",
+        bucket="minio-bucket",
+        folder="high-priority/",
+        encoding_type="JSON_OBJECT",
+        access_key_id="minioadmin",
+        secret_access_key="minioadmin",
+        s3_endpoint_override="http://localhost:9000"
+    )
+)
+```
+
 ## S3 Dead Letter Queue (DLQ)
 
 ZephFlow supports automatic error handling by storing failed events to Amazon S3 using a Dead Letter Queue mechanism. **S3 DLQ works with data sources** (like file_source, kafka_source, etc.) and captures events that fail during **data ingestion, conversion, or pipeline processing** (including filter, assertion, eval failures).

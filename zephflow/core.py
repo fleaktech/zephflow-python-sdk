@@ -305,6 +305,8 @@ class ZephFlow:
         bucket: str,
         folder: str,
         encoding_type: str,
+        access_key_id: Optional[str] = None,
+        secret_access_key: Optional[str] = None,
         s3_endpoint_override: Optional[str] = None,
     ):
         """
@@ -315,6 +317,8 @@ class ZephFlow:
             bucket: S3 bucket name
             folder: Folder path within the bucket
             encoding_type: Encoding type for the output (e.g., "JSON_OBJECT")
+            access_key_id: Optional AWS access key ID
+            secret_access_key: Optional AWS secret access key
             s3_endpoint_override: Optional endpoint override for S3 compatibility
 
         Returns:
@@ -326,12 +330,17 @@ class ZephFlow:
             encoding_type
         )
 
-        if s3_endpoint_override:
-            new_java_flow = self._java_flow.s3Sink(
-                region, bucket, folder, java_encoding_type, s3_endpoint_override
+        # Create credential object if both access_key_id and secret_access_key are provided
+        credential = None
+        if access_key_id and secret_access_key:
+            credential = ZephFlow._jvm.io.fleak.zephflow.lib.credentials.UsernamePasswordCredential(
+                access_key_id, secret_access_key
             )
-        else:
-            new_java_flow = self._java_flow.s3Sink(region, bucket, folder, java_encoding_type)
+
+        # Use the new unified Java API
+        new_java_flow = self._java_flow.s3Sink(
+            region, bucket, folder, java_encoding_type, credential, s3_endpoint_override
+        )
 
         return ZephFlow(new_java_flow)
 
