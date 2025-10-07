@@ -54,7 +54,6 @@ flow = (
             )
         )
     """)
-    .stdout_sink("JSON_OBJECT")  # Output to console
 )
 
 # Process some events
