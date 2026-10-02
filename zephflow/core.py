@@ -474,18 +474,6 @@ class ZephFlow:
         """
         self._java_flow.execute(job_id, env, service)
 
-    def submit_api_endpoint(self, http_starter_host_url: str):
-        """
-        Submit the flow to an API endpoint.
-
-        Args:
-            http_starter_host_url: URL of the HTTP starter host
-
-        Returns:
-            str: Response from the API endpoint
-        """
-        return self._java_flow.submitApiEndpoint(http_starter_host_url)
-
     def process(
         self,
         events,
